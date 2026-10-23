@@ -55,6 +55,7 @@
       cardio: [],
       health: {},
       cardioLive: null,
+      body: { heightCm: 0, ideal: 0, focus: '', set: false },
     };
   }
   function load() {
@@ -62,7 +63,7 @@
       const s = JSON.parse(localStorage.getItem(KEY));
       if (s && Array.isArray(s.profiles) && s.profiles.length) {
         const d = defaults();
-        return Object.assign(d, s, { settings: Object.assign(d.settings, s.settings || {}) });
+        return Object.assign(d, s, { settings: Object.assign(d.settings, s.settings || {}), body: Object.assign(d.body, s.body || {}) });
       }
     } catch (e) { /* fall through */ }
     return defaults();
@@ -76,6 +77,11 @@
   const C = WPC({
     state: () => state, save: () => save(), render: () => render(), ui, toast: (m) => toast(m),
     openSheet: (t, h) => openSheet(t, h), closeSheet: () => closeSheet(), esc, fmtClock, fmtNum, fmtDate, uid, num,
+  });
+
+  const B = WPB({
+    state: () => state, save: () => save(), render: () => render(), ui, toast: (m) => toast(m),
+    openSheet: (t, h) => openSheet(t, h), closeSheet: () => closeSheet(), esc, num,
   });
 
   const profile = () => state.profiles.find((p) => p.id === state.activeProfile) || state.profiles[0];
@@ -191,7 +197,9 @@
 
   /* ───────────── rendering ───────────── */
   function viewTrain() {
-    return state.current ? viewWorkout() : C.todayMini() + viewBuilder();
+    if (state.current) return viewWorkout();
+    if (ui.trainMode === 'cardio') return C.modeSwitch() + C.trainView();
+    return C.modeSwitch() + B.trainBanner() + C.liveBanner() + C.todayMini() + viewBuilder();
   }
 
   function viewBuilder() {
@@ -381,7 +389,8 @@
       </article>`;
     }).join('');
     return `
-      <div class="row between head"><h2>Profiles</h2><button class="pill on" data-act="new-profile">＋ New profile</button></div>
+      ${B.profileCard()}
+      <div class="row between head"><h2>Equipment profiles</h2><button class="pill on" data-act="new-profile">＋ New profile</button></div>
       <p class="muted pad">A profile is a set of equipment — for example your gym, or the room upstairs. Workouts only use exercises you can actually do with the active profile.</p>
       ${cards}
       <section class="card">
@@ -616,7 +625,7 @@
       }
       case 'set-goal': state.settings.goal = d.v; save(); render(); break;
       case 'set-level': state.settings.level = d.v; save(); render(); break;
-      case 'set-units': if (state.settings.weight && state.settings.units !== d.v) state.settings.weight = Math.round(d.v === 'kg' ? state.settings.weight * 0.4536 : state.settings.weight / 0.4536); state.settings.units = d.v; save(); render(); break;
+      case 'set-units': if (state.settings.weight && state.settings.units !== d.v) { const k = d.v === 'kg' ? 0.4536 : 1 / 0.4536; state.settings.weight = Math.round(state.settings.weight * k); if (state.body.ideal) state.body.ideal = Math.round(state.body.ideal * k); } state.settings.units = d.v; save(); render(); break;
       case 'count': state.settings.count = Math.min(12, Math.max(3, state.settings.count + +d.d)); save(); render(); break;
       case 'generate':
         if (generate()) { render(); window.scrollTo(0, 0); } else toast('No exercises match that profile');
@@ -743,7 +752,7 @@
           state = defaults(); save(); ui.tab = 'train'; render();
         }
         break;
-      default: C.act(act, t); break;
+      default: if (!C.act(act, t)) B.act(act, t); break;
     }
   }
 
@@ -759,7 +768,7 @@
 
   document.addEventListener('input', (ev) => {
     const t = ev.target;
-    if (C.input(t)) return;
+    if (C.input(t) || B.input(t)) return;
     if (t.dataset && t.dataset.field && state.current) {
       const row = t.closest('.set');
       const s = state.current.exercises[+row.dataset.i].sets[+row.dataset.j];
@@ -794,7 +803,7 @@
           if (!data || !Array.isArray(data.profiles) || !data.profiles.length || !Array.isArray(data.history)) throw new Error('bad file');
           if (confirm('Replace everything on this device with the backup?')) {
             const d = defaults();
-            state = Object.assign(d, data, { settings: Object.assign(d.settings, data.settings || {}) });
+            state = Object.assign(d, data, { settings: Object.assign(d.settings, data.settings || {}), body: Object.assign(d.body, data.body || {}) });
             if (!state.profiles.some((p) => p.id === state.activeProfile)) state.activeProfile = state.profiles[0].id;
             save(); render(); toast('Backup restored');
           }

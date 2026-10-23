@@ -10,7 +10,7 @@ const WPC = (ctx) => {
   const timeOf = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
   let watchId = null, wake = null, lastSave = 0;
-  ui.ctype = 'walk'; ui.cgps = true; ui.awaiting = false; ui.cdraft = null;
+  ui.trainMode = 'strength'; ui.ctype = 'walk'; ui.cgps = true; ui.awaiting = false; ui.cdraft = null;
 
   /* ───────── live session ───────── */
   const live = () => S().cardioLive;
@@ -58,9 +58,9 @@ const WPC = (ctx) => {
   }
   function updateLiveDom() {
     const L = live();
-    if (!L || ui.tab !== 'cardio') return;
+    if (!L || !(ui.tab === 'cardio' || (ui.tab === 'train' && ui.trainMode === 'cardio') || ui.tab === 'train')) return;
     const s = liveStats(L), set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = v; };
-    set('lvTime', fmtClock(s.sec)); set('lvDist', L.gps || L.dist ? fmtDist(L.dist) : '–'); set('lvPace', L.gps || L.dist ? fmtPace(L.dist, s.sec) : '–'); set('lvKcal', fmtNum(s.kcal));
+    set('lvTime', fmtClock(s.sec)); set('lvMini', fmtClock(s.sec)); set('lvDist', L.gps || L.dist ? fmtDist(L.dist) : '–'); set('lvPace', L.gps || L.dist ? fmtPace(L.dist, s.sec) : '–'); set('lvKcal', fmtNum(s.kcal));
     const g = document.getElementById('lvGps');
     if (g) g.textContent = !L.gps ? 'GPS off — time only' : !L.running ? 'Paused' : L.lastFix && Date.now() - L.lastFix < 15000 ? 'GPS locked' : 'Searching for GPS…';
   }
@@ -296,11 +296,31 @@ const WPC = (ctx) => {
       </div>`).join('')}</section>`;
   }
 
+  function targetCard() {
+    const w = BODY.cardioWeek(S());
+    return `<section class="card"><div class="row between"><h2>Weekly cardio</h2><small class="muted">${w.done} / ${w.target} min</small></div>
+      <div class="meter" role="progressbar" aria-valuenow="${w.done}" aria-valuemax="${w.target}"><span style="width:${w.pct}%"></span></div>
+      <p class="muted small">${w.focus ? `Target for “${esc(w.focus.name)}”. Change it in Profiles → You.` : 'General health target. Pick a training focus in Profiles to tailor it.'}</p></section>`;
+  }
+  function modeSwitch() {
+    return `<div class="seg modes" role="group" aria-label="Workout type"><button data-act="cd-mode" data-v="strength" class="${ui.trainMode !== 'cardio' ? 'on' : ''}">Strength</button><button data-act="cd-mode" data-v="cardio" class="${ui.trainMode === 'cardio' ? 'on' : ''}">Cardio</button></div>`;
+  }
+  function liveBanner() {
+    const L = live(); if (!L) return '';
+    return `<button class="card today mini live" data-act="cd-mode" data-v="cardio"><span><small>${typeName(L.type)} in progress${L.running ? '' : ' (paused)'}</small><b id="lvMini">${fmtClock(elapsed(L))}</b></span><span class="r"><em>Tap to open</em></span></button>`;
+  }
+  function trainView() {
+    const L = live();
+    return `${todayCard()}${L ? livePanel(L) : startPanel()}${targetCard()}
+      <p class="muted small pad">Apple Health sync, history and body-weight settings are on the Cardio tab.</p>`;
+  }
+
   function view() {
     const L = live(), w = S().settings.weight || (U() === 'kg' ? 75 : 165);
     return `<div class="row between head"><h2>Cardio</h2></div>
       ${todayCard()}
       ${L ? livePanel(L) : startPanel()}
+      ${targetCard()}
       ${healthPanel()}
       ${weekBars()}
       ${recentList()}
@@ -313,6 +333,7 @@ const WPC = (ctx) => {
   /* ───────── events from app.js ───────── */
   function act(a, t) {
     switch (a) {
+      case 'cd-mode': ui.trainMode = t.dataset.v; ui.tab = 'train'; ctx.render(); window.scrollTo(0, 0); return true;
       case 'cd-type': ui.ctype = t.dataset.v; ctx.render(); return true;
       case 'cd-start': start(); return true;
       case 'cd-pause': pause(); return true;
@@ -354,5 +375,5 @@ const WPC = (ctx) => {
     return false;
   }
 
-  return { view, todayMini, todayCard, act, input, change, bootHash, boot };
+  return { view, trainView, modeSwitch, liveBanner, todayMini, todayCard, act, input, change, bootHash, boot };
 };

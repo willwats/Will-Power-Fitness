@@ -1,6 +1,6 @@
 /* Will Power Fitness — exercise animations.
- * A tiny stick-figure engine: each movement is a few key poses; the figure is drawn with
- * two-segment inverse kinematics so elbows and knees bend naturally between poses.
+ * Each movement is a few key poses; the athlete is drawn as a filled, tapered body (clothing, shoes,
+ * the trained muscle glowing) using two-segment inverse kinematics so elbows and knees bend naturally.
  * Templates live in anim-upper.js / anim-lower.js / anim-core.js; anim-map.js maps exercises → templates.
  */
 const WPA = (() => {
@@ -83,7 +83,45 @@ const WPA = (() => {
     wheel: '<circle r="5" class="w2"/>',
   };
 
-  function build(host, name, held, label) {
+  /* ── body: filled, tapered limbs, shaped torso, clothing and a glowing target muscle ── */
+  const f1 = (n) => n.toFixed(1);
+  const P2 = (p) => `${f1(p[0])} ${f1(p[1])}`;
+  /** Tapered limb with rounded ends and a slight muscle belly (k). */
+  function limb(a, b, w0, w1, k = 1) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    const r0 = w0 / 2, r1 = w1 / 2, mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, c = (r0 + r1) / 2 + k;
+    const Q = (p, s, r) => [p[0] + nx * s * r, p[1] + ny * s * r];
+    const a1 = Q(a, 1, r0), b1 = Q(b, 1, r1), b2 = Q(b, -1, r1), a2 = Q(a, -1, r0);
+    return `M${P2(a1)}Q${P2([mx + nx * c, my + ny * c])} ${P2(b1)}A${f1(r1)} ${f1(r1)} 0 0 0 ${P2(b2)}Q${P2([mx - nx * c, my - ny * c])} ${P2(a2)}A${f1(r0)} ${f1(r0)} 0 0 0 ${P2(a1)}Z`;
+  }
+  /** Smooth closed outline through points (midpoint quadratics). */
+  function blob(p) {
+    const m = (i, j) => [(p[i][0] + p[j][0]) / 2, (p[i][1] + p[j][1]) / 2], n = p.length;
+    let d = `M${P2(m(0, 1))}`;
+    for (let i = 1; i <= n; i++) d += `Q${P2(p[i % n])} ${P2(m(i % n, (i + 1) % n))}`;
+    return d + 'Z';
+  }
+  const lerpP = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+  const deg = (dx, dy) => (Math.atan2(dy, dx) * 180) / Math.PI;
+  const ellAlong = (a, b, w, frac = 0.8) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (Math.hypot(b[0] - a[0], b[1] - a[1]) / 2) * frac, w / 2, deg(b[0] - a[0], b[1] - a[1])];
+  const along = (G, k, off) => [G.hip[0] + (G.sh[0] - G.hip[0]) * k + G.n[0] * off, G.hip[1] + (G.sh[1] - G.hip[1]) * k + G.n[1] * off];
+
+  /** Which body parts glow for each trained muscle: n ellipses, f(G, i) → [cx, cy, rx, ry, rotation]. */
+  const HL = {
+    chest: { n: 1, f: (G) => [...along(G, 0.8, 3.4), 4.8, 3.4, G.axis] },
+    back: { n: 1, f: (G) => [...along(G, 0.66, -3.6), 6.4, 3, G.axis] },
+    shoulders: { n: 2, f: (G, i) => [G.arms[i][0][0], G.arms[i][0][1], 3.9, 3.9, 0] },
+    biceps: { n: 2, f: (G, i) => ellAlong(G.arms[i][0], G.arms[i][1], 5) },
+    triceps: { n: 2, f: (G, i) => ellAlong(G.arms[i][0], G.arms[i][1], 5) },
+    forearms: { n: 2, f: (G, i) => ellAlong(G.arms[i][1], G.arms[i][2], 4) },
+    core: { n: 1, f: (G) => [...along(G, 0.34, 3.6), 5, 2.6, G.axis] },
+    quads: { n: 2, f: (G, i) => ellAlong(G.legs[i][0], G.legs[i][1], 8.5) },
+    hamstrings: { n: 2, f: (G, i) => ellAlong(G.legs[i][0], G.legs[i][1], 8.5) },
+    glutes: { n: 1, f: (G) => [G.hip[0] + G.n[0] * -2.6, G.hip[1] + G.n[1] * -2.6, 5.2, 4.6, G.axis] },
+    calves: { n: 2, f: (G, i) => ellAlong(G.legs[i][1], G.legs[i][2], 6.2) },
+  };
+
+  function build(host, name, held, label, muscle) {
     const tpl = T[name];
     host.innerHTML = '';
     const svg = document.createElementNS(NS, 'svg');
@@ -92,46 +130,82 @@ const WPA = (() => {
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', label || 'Exercise demonstration');
     const anchor = tpl.anchor;
+    const hl = HL[muscle];
+    const e = (tag, cls, r) => `<${tag} class="${cls}" data-r="${r}"/>`;
     svg.innerHTML = `
       <line class="gnd" x1="4" y1="${GY}" x2="156" y2="${GY}"/>
+      <ellipse class="shadow" cx="80" cy="${GY + 0.5}" rx="22" ry="1.6"/>
       ${tpl.static || ''}
       ${anchor && (held === 'rope' || tpl.rope) ? `<circle class="p" cx="${anchor[0]}" cy="${anchor[1]}" r="2.2"/><line class="rope" x1="0" y1="0" x2="${anchor[0]}" y2="${anchor[1]}"/>` : ''}
-      <polyline class="far" data-r="fa"/><polyline class="far" data-r="fl"/>
-      <polyline class="near" data-r="tr"/><polyline class="near" data-r="ar"/><polyline class="near" data-r="lg"/>
-      <circle class="head" r="${HEAD_R}"/>
+      ${e('path', 'skin far', 'fa1')}${e('path', 'skin far', 'fa2')}${e('circle', 'skin far', 'fh')}
+      ${e('path', 'skin far', 'fl1')}${e('path', 'skin far', 'fl2')}${e('path', 'short far', 'fs')}${e('ellipse', 'shoe far', 'ff')}
+      ${e('path', 'shirt', 'tr')}${e('circle', 'short', 'hp')}
+      ${e('path', 'skin', 'nk')}
+      ${e('path', 'skin', 'lg1')}${e('path', 'skin', 'lg2')}${e('path', 'short', 'ns')}${e('ellipse', 'shoe', 'nf')}
+      ${e('path', 'skin', 'ar1')}${e('path', 'skin', 'ar2')}${e('circle', 'skin', 'nh')}
+      ${hl ? Array.from({ length: hl.n }, (_, i) => e('ellipse', 'hl', 'hl' + i)).join('') : ''}
+      ${e('circle', 'hair', 'hr')}${e('circle', 'skin', 'hd')}${e('circle', 'skin', 'ns2')}
       ${held && held !== 'rope' && !tpl.rope && HELD[held] ? `<g class="held">${HELD[held]}</g>` : ''}`;
     host.appendChild(svg);
-    const q = (s) => svg.querySelector(s);
-    const ref = {
-      svg, fa: q('[data-r=fa]'), fl: q('[data-r=fl]'), tr: q('[data-r=tr]'), ar: q('[data-r=ar]'), lg: q('[data-r=lg]'),
-      head: q('.head'), held: q('.held'), rope: q('.rope'),
-    };
+    const ref = { svg, hl, held: svg.querySelector('.held'), rope: svg.querySelector('.rope'), hls: [] };
+    svg.querySelectorAll('[data-r]').forEach((n) => { ref[n.dataset.r] = n; });
+    if (hl) for (let i = 0; i < hl.n; i++) ref.hls.push(ref['hl' + i]);
     return ref;
   }
 
-  const pts = (a) => a.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const setD = (el, d) => el.setAttribute('d', d);
+  const setC = (el, c, r) => { el.setAttribute('cx', f1(c[0])); el.setAttribute('cy', f1(c[1])); if (r) el.setAttribute('r', r); };
+  function setShoe(el, ankle, knee) {
+    const dx = ankle[0] - knee[0], dy = ankle[1] - knee[1], L = Math.hypot(dx, dy) || 1, d = [dx / L, dy / L], f = [d[1], -d[0]];
+    const c = [ankle[0] + f[0] * 2.4 - d[0] * 1.3, ankle[1] + f[1] * 2.4 - d[1] * 1.3];
+    el.setAttribute('cx', 0); el.setAttribute('cy', 0); el.setAttribute('rx', 5); el.setAttribute('ry', 2.5);
+    el.setAttribute('transform', `translate(${f1(c[0])} ${f1(c[1])}) rotate(${f1(deg(f[0], f[1]))})`);
+  }
+  function applyHL(ref, G) {
+    if (!ref.hl) return;
+    ref.hls.forEach((el, i) => {
+      const v = ref.hl.f(G, i);
+      el.setAttribute('rx', f1(Math.max(1, v[2]))); el.setAttribute('ry', f1(Math.max(1, v[3])));
+      el.setAttribute('transform', `translate(${f1(v[0])} ${f1(v[1])}) rotate(${f1(v[4])})`);
+    });
+  }
+  function head(ref, c, fwd, up) {
+    const at = (a, b) => [c[0] + fwd[0] * a + up[0] * b, c[1] + fwd[1] * a + up[1] * b];
+    setC(ref.hr, at(-1.1, 0.7), 5.4); setC(ref.hd, at(0.5, -0.2), 4.7);
+    setC(ref.ns2, at(4.7, -0.6), 1.1);
+  }
 
   function drawFront(ref, p) {
     const hipY = 57 + p.hy, neckY = hipY - 24 + p.sy;
     const arm = (sx, a, dir) => {
-      const s0 = [sx, neckY + 2];
-      const e = [s0[0] + dir * UA * Math.sin(rad(a[0])), s0[1] + UA * Math.cos(rad(a[0]))];
-      return [s0, e, [e[0] + dir * FA * Math.sin(rad(a[1])), e[1] + FA * Math.cos(rad(a[1]))]];
+      const s0 = [sx, neckY + 3];
+      const j = [s0[0] + dir * UA * Math.sin(rad(a[0])), s0[1] + UA * Math.cos(rad(a[0]))];
+      return [s0, j, [j[0] + dir * FA * Math.sin(rad(a[1])), j[1] + FA * Math.cos(rad(a[1]))]];
     };
     const leg = (x, g, dir) => {
       const f = [x + dir * 37 * Math.sin(rad(g)), hipY + 37 * Math.cos(rad(g))];
-      return [[x, hipY], [(x + f[0]) / 2, (hipY + f[1]) / 2], f];
+      return [[x, hipY], [(x + f[0]) / 2 + dir * 0.4, (hipY + f[1]) / 2], f];
     };
-    const ra = arm(89, p.a, 1), la = arm(71, p.a2, -1);
-    ref.tr.setAttribute('points', pts([[80, hipY], [80, neckY], [89, neckY + 2], [71, neckY + 2]].slice(0, 2)));
-    ref.ar.setAttribute('points', pts(ra));
-    ref.fa.setAttribute('points', pts(la));
-    ref.lg.setAttribute('points', pts(leg(85, p.g, 1)));
-    ref.fl.setAttribute('points', pts(leg(75, p.g2, -1)));
-    ref.head.setAttribute('cx', '80');
-    ref.head.setAttribute('cy', (neckY - 7).toFixed(1));
-    if (ref.held) ref.held.setAttribute('transform', `translate(${ra[2][0].toFixed(1)} ${ra[2][1].toFixed(1)})`);
-    if (ref.rope) { ref.rope.setAttribute('x1', ra[2][0].toFixed(1)); ref.rope.setAttribute('y1', ra[2][1].toFixed(1)); }
+    const ra = arm(89, p.a, 1), la = arm(71, p.a2, -1), rl = leg(84.5, p.g, 1), ll = leg(75.5, p.g2, -1);
+    const G = { hip: [80, hipY], sh: [80, neckY + 3], n: [0, 0], axis: -90, arms: [ra, la], legs: [rl, ll] };
+    setD(ref.tr, blob([[69.5, neckY + 4], [75, neckY + 0.5], [85, neckY + 0.5], [90.5, neckY + 4], [88, neckY + 12], [86, hipY - 4], [86, hipY], [74, hipY], [74, hipY - 4], [72, neckY + 12]]));
+    setC(ref.hp, [80, hipY - 1], 7.2);
+    setD(ref.nk, limb([80, neckY + 1], [80, neckY - 5], 4.4, 3.8, 0));
+    setD(ref.ar1, limb(ra[0], ra[1], 6.2, 4.8, 1.2)); setD(ref.ar2, limb(ra[1], ra[2], 4.8, 3.4, 0.8)); setC(ref.nh, ra[2], 2.5);
+    setD(ref.fa1, limb(la[0], la[1], 6.2, 4.8, 1.2)); setD(ref.fa2, limb(la[1], la[2], 4.8, 3.4, 0.8)); setC(ref.fh, la[2], 2.5);
+    setD(ref.lg1, limb(rl[0], rl[1], 9.5, 7.2, 1.6)); setD(ref.lg2, limb(rl[1], rl[2], 7.2, 4.8, 1.2));
+    setD(ref.fl1, limb(ll[0], ll[1], 9.5, 7.2, 1.6)); setD(ref.fl2, limb(ll[1], ll[2], 7.2, 4.8, 1.2));
+    setD(ref.ns, limb(rl[0], lerpP(rl[0], rl[1], 0.55), 11, 9.4, 0.4));
+    setD(ref.fs, limb(ll[0], lerpP(ll[0], ll[1], 0.55), 11, 9.4, 0.4));
+    for (const [el, l, dir] of [[ref.nf, rl, 1], [ref.ff, ll, -1]]) {
+      el.setAttribute('cx', 0); el.setAttribute('cy', 0); el.setAttribute('rx', 3.6); el.setAttribute('ry', 2.2);
+      el.setAttribute('transform', `translate(${f1(l[2][0] + dir * 1.2)} ${f1(l[2][1] - 0.6)})`);
+    }
+    head(ref, [80, neckY - 8], [0, 0], [0, -1]);
+    setC(ref.hr, [80, neckY - 9], 5.5); setC(ref.hd, [80, neckY - 7.6], 4.8); setC(ref.ns2, [80, neckY - 7], 0);
+    applyHL(ref, G);
+    if (ref.held) ref.held.setAttribute('transform', `translate(${f1(ra[2][0])} ${f1(ra[2][1])})`);
+    if (ref.rope) { ref.rope.setAttribute('x1', f1(ra[2][0])); ref.rope.setAttribute('y1', f1(ra[2][1])); }
   }
 
   function draw(ref, p, tpl) {
@@ -139,16 +213,25 @@ const WPA = (() => {
     const sh = [p.hip[0] + LT * Math.sin(rad(p.t)), p.hip[1] - LT * Math.cos(rad(p.t))];
     const arm = ik(sh, p.hand, UA, FA, p.eb), arm2 = ik(sh, p.hand2, UA, FA, p.eb);
     const leg = ik(p.hip, p.foot, TH, SH, p.kb), leg2 = ik(p.hip, p.foot2, TH, SH, p.kb);
-    ref.tr.setAttribute('points', pts([p.hip, sh]));
-    ref.ar.setAttribute('points', pts([sh, arm.j, arm.e]));
-    ref.fa.setAttribute('points', pts([sh, arm2.j, arm2.e]));
-    ref.lg.setAttribute('points', pts([p.hip, leg.j, leg.e]));
-    ref.fl.setAttribute('points', pts([p.hip, leg2.j, leg2.e]));
-    const ha = rad(p.t + p.nk);
-    ref.head.setAttribute('cx', (sh[0] + 9.5 * Math.sin(ha)).toFixed(1));
-    ref.head.setAttribute('cy', (sh[1] - 9.5 * Math.cos(ha)).toFixed(1));
-    if (ref.held) ref.held.setAttribute('transform', `translate(${arm.e[0].toFixed(1)} ${arm.e[1].toFixed(1)})`);
-    if (ref.rope) { ref.rope.setAttribute('x1', arm.e[0].toFixed(1)); ref.rope.setAttribute('y1', arm.e[1].toFixed(1)); }
+    const t = rad(p.t), n = [Math.cos(t), Math.sin(t)], hip = p.hip;
+    const at = (k, off) => [hip[0] + (sh[0] - hip[0]) * k + n[0] * off, hip[1] + (sh[1] - hip[1]) * k + n[1] * off];
+    setD(ref.tr, blob([at(0, -5), at(0.34, -4.4), at(0.7, -5.4), at(1.0, -4.4), at(1.1, 0.4), at(1.0, 5.2), at(0.78, 6.6), at(0.52, 5.3), at(0.3, 4.4), at(0, 5.2)]));
+    setC(ref.hp, [hip[0] + n[0] * 0.2, hip[1] + n[1] * 0.2], 5.3);
+    const ha = rad(p.t + p.nk), up = [Math.sin(ha), -Math.cos(ha)], fwd = [Math.cos(ha), Math.sin(ha)];
+    const hc = [sh[0] + up[0] * 10, sh[1] + up[1] * 10];
+    setD(ref.nk, limb(at(1.0, 0), hc, 4.6, 3.8, 0));
+    head(ref, hc, fwd, up);
+    const W = { a0: 6.4, a1: 4.9, a2: 3.5, t0: 10, t1: 7.4, t2: 5 };
+    setD(ref.ar1, limb(sh, arm.j, W.a0, W.a1, 1.4)); setD(ref.ar2, limb(arm.j, arm.e, W.a1, W.a2, 0.8)); setC(ref.nh, arm.e, 2.5);
+    setD(ref.fa1, limb(sh, arm2.j, W.a0, W.a1, 1.4)); setD(ref.fa2, limb(arm2.j, arm2.e, W.a1, W.a2, 0.8)); setC(ref.fh, arm2.e, 2.5);
+    setD(ref.lg1, limb(hip, leg.j, W.t0, W.t1, 1.8)); setD(ref.lg2, limb(leg.j, leg.e, W.t1, W.t2, 1.5));
+    setD(ref.fl1, limb(hip, leg2.j, W.t0, W.t1, 1.8)); setD(ref.fl2, limb(leg2.j, leg2.e, W.t1, W.t2, 1.5));
+    setD(ref.ns, limb(hip, lerpP(hip, leg.j, 0.46), 10.8, 9.6, 0.3));
+    setD(ref.fs, limb(hip, lerpP(hip, leg2.j, 0.46), 10.8, 9.6, 0.3));
+    setShoe(ref.nf, leg.e, leg.j); setShoe(ref.ff, leg2.e, leg2.j);
+    applyHL(ref, { hip, sh, n, axis: deg(sh[0] - hip[0], sh[1] - hip[1]), arms: [[sh, arm.j, arm.e], [sh, arm2.j, arm2.e]], legs: [[hip, leg.j, leg.e], [hip, leg2.j, leg2.e]] });
+    if (ref.held) ref.held.setAttribute('transform', `translate(${f1(arm.e[0])} ${f1(arm.e[1])})`);
+    if (ref.rope) { ref.rope.setAttribute('x1', f1(arm.e[0])); ref.rope.setAttribute('y1', f1(arm.e[1])); }
   }
 
   /** Pose at progress u in [0,1) of the looping cycle. */
@@ -177,11 +260,11 @@ const WPA = (() => {
   const kick = () => { if (!raf && live.size) raf = requestAnimationFrame(loop); };
   document.addEventListener('visibilitychange', kick);
 
-  function mount(host, name, held, label) {
+  function mount(host, name, held, label, muscle) {
     const tpl = T[name];
     if (!tpl) return;
     tpl.dur = tpl.dur || 2800;
-    const ref = build(host, name, held, label);
+    const ref = build(host, name, held, label, muscle);
     const m = { host, ref, tpl, phase: 0, vis: true, reduce: window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches };
     draw(ref, frame(tpl, m.reduce ? 0 : 0.5), tpl);      // paint something immediately
     if (m.reduce) draw(ref, frame(tpl, 0.25), tpl);
@@ -199,13 +282,13 @@ const WPA = (() => {
       if (!ex) return;
       const spec = WPA.forExercise(ex);
       el.dataset.on = '1';
-      mount(el, spec.tpl, spec.held, `How to do ${ex.name}`);
+      mount(el, spec.tpl, spec.held, `How to do ${ex.name}`, ex.muscle);
     });
   }
 
   /** Static render (for tests / contact sheets). */
-  function still(host, name, u, held) {
-    const ref = build(host, name, held || false, name);
+  function still(host, name, u, held, muscle) {
+    const ref = build(host, name, held || false, name, muscle);
     draw(ref, frame(T[name], u), T[name]);
   }
 

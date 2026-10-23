@@ -205,10 +205,17 @@ legend { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; co
 .wpa { width: 100%; height: auto; display: block; background: var(--card2); border-radius: 12px; }
 .wpa .gnd { stroke: var(--line); stroke-width: 1.5; }
 .wpa .p { stroke: var(--muted); fill: var(--muted); opacity: .75; }
-.wpa polyline { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.wpa .near { stroke: var(--text); stroke-width: 3.4; }
-.wpa .far { stroke: var(--text); stroke-width: 3; opacity: .35; }
-.wpa .head { fill: var(--card2); stroke: var(--text); stroke-width: 3; }
+.wpa .shadow { fill: #000; opacity: .16; }
+.wpa .skin { fill: #e2ad86; }
+.wpa .skin.far { fill: #bd8a66; }
+.wpa .shirt { fill: #3f4a63; }
+.wpa .short { fill: #1f2430; }
+.wpa .short.far { fill: #151a23; }
+.wpa .shoe { fill: #f4f4f6; stroke: #8d93a3; stroke-width: .6; }
+.wpa .shoe.far { fill: #c3c7d1; stroke: none; }
+.wpa .hair { fill: #2a1c14; }
+.wpa .hl { fill: var(--accent); opacity: .72; animation: hlpulse 1.6s ease-in-out infinite; }
+@keyframes hlpulse { 50% { opacity: .42; } }
 .wpa .w { fill: var(--accent); }
 .wpa .wi { fill: var(--card2); }
 .wpa .w2 { fill: none; stroke: var(--accent); stroke-width: 2.5; }
@@ -217,9 +224,9 @@ legend { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; co
 
 .ex header { display: flex; gap: 12px; align-items: flex-start; }
 .ex header .hd-text { flex: 1; min-width: 0; }
-.ex header .anim { width: 132px; flex: none; }
+.ex header .anim { width: 150px; flex: none; }
 .lib .anim { max-width: 300px; margin: 8px 0 4px; }
-@media (min-width: 720px) { .ex header .anim { width: 180px; } }
+@media (min-width: 720px) { .ex header .anim { width: 200px; } }
 
 /* ───────── cardio & calories ───────── */
 .field input, .field select, textarea {
@@ -262,3 +269,27 @@ textarea { resize: vertical; }
 .cardio-row .vol { text-align: right; font-weight: 800; }
 .guide { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: .92rem; }
 code { background: var(--card2); border-radius: 6px; padding: 1px 6px; font-size: .85em; word-break: break-all; }
+
+/* ───────── train modes, focus, profile ───────── */
+.seg.modes { margin-bottom: 12px; }
+.seg.modes button { padding: 12px 6px; font-size: .95rem; }
+.meter { height: 10px; border-radius: 99px; background: var(--card2); border: 1px solid var(--line); overflow: hidden; }
+.meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 99px; transition: width .4s; }
+.today.mini.live { border-color: var(--accent); }
+.focusbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 6px 12px; font-size: .92rem; color: var(--muted); }
+.focusbar b { color: var(--text); }
+.focusbar.prompt { width: 100%; flex-direction: row; text-align: left; padding: 14px 16px; margin-bottom: 12px; color: var(--text); }
+.focusbar.prompt small { display: block; color: var(--muted); font-size: .8rem; margin-top: 2px; }
+.focus-list { display: flex; flex-direction: column; gap: 10px; }
+.focus { text-align: left; background: var(--card2); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; display: block; width: 100%; color: var(--text); }
+.focus.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.focus b { font-size: 1.02rem; }
+.focus small { display: block; color: var(--muted); font-size: .82rem; margin: 4px 0 6px; font-weight: 500; line-height: 1.35; }
+.focus ul { margin: 0; padding-left: 18px; font-size: .8rem; color: var(--muted); display: none; }
+.focus.on ul { display: block; }
+.summary { padding: 12px 14px; background: var(--card2); gap: 6px; }
+.summary p { margin: 0; font-size: .9rem; }
+.stats4 { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; gap: 6px; }
+.stats4 b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.stats4 small { color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+.sheet-body h3 { margin: 6px 0 0; font-size: 1rem; }
