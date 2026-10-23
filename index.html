@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Will Power Fitness</title>
+  <meta name="description" content="Pick a body part, tell the app what equipment you have, and get a workout. Separate profiles for the gym and home.">
+  <meta name="theme-color" content="#0e0f13">
+  <meta name="color-scheme" content="dark light">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Will Power">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path d="M18.5 2 6 18h8l-2 12L26 12h-8.5z" fill="currentColor"/></svg>
+      <h1>WILL POWER <span>FITNESS</span></h1>
+    </div>
+    <button id="profileChip" class="chip-profile" data-act="open-profiles" aria-label="Switch equipment profile"></button>
+  </header>
+
+  <main id="main"></main>
+
+  <div id="rest" class="rest" hidden>
+    <div class="rest-fill" id="restFill"></div>
+    <div class="rest-inner">
+      <span>Rest</span><b id="restTime">0:00</b>
+      <button data-act="rest-add">+15s</button>
+      <button data-act="rest-skip">Skip</button>
+    </div>
+  </div>
+
+  <nav aria-label="Main">
+    <button data-tab="train"><svg viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/></svg>Train</button>
+    <button data-tab="library"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Library</button>
+    <button data-tab="history"><svg viewBox="0 0 24 24"><path d="M12 7v5l3 2M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/></svg>History</button>
+    <button data-tab="gear"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14.3 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>Profiles</button>
+  </nav>
+
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-head"><h2 id="sheetTitle"></h2><button data-act="close-sheet" aria-label="Close">✕</button></div>
+      <div class="sheet-body" id="sheetBody"></div>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <noscript><p style="padding:24px">Will Power Fitness needs JavaScript to run.</p></noscript>
+  <script src="exercises.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
