@@ -48,10 +48,13 @@
       v: 1,
       profiles: [gym, home],
       activeProfile: gym.id,
-      settings: { units: 'lb', goal: 'hypertrophy', level: 'intermediate', count: 6, restTimer: true },
+      settings: { units: 'lb', goal: 'hypertrophy', level: 'intermediate', count: 6, restTimer: true, weight: 0 },
       selected: [],
       history: [],
       current: null,
+      cardio: [],
+      health: {},
+      cardioLive: null,
     };
   }
   function load() {
@@ -69,6 +72,11 @@
 
   // UI-only state (not persisted)
   const ui = { tab: 'train', libMuscle: 'all', libSearch: '', libMine: true, restEnd: 0, restTotal: 0, draft: null, addMuscle: 'workout', addSearch: '' };
+
+  const C = WPC({
+    state: () => state, save: () => save(), render: () => render(), ui, toast: (m) => toast(m),
+    openSheet: (t, h) => openSheet(t, h), closeSheet: () => closeSheet(), esc, fmtClock, fmtNum, fmtDate, uid, num,
+  });
 
   const profile = () => state.profiles.find((p) => p.id === state.activeProfile) || state.profiles[0];
   const workoutProfile = () => (state.current && state.profiles.find((p) => p.id === state.current.profileId)) || profile();
@@ -183,7 +191,7 @@
 
   /* ───────────── rendering ───────────── */
   function viewTrain() {
-    return state.current ? viewWorkout() : viewBuilder();
+    return state.current ? viewWorkout() : C.todayMini() + viewBuilder();
   }
 
   function viewBuilder() {
@@ -330,18 +338,26 @@
         <div><b>${fmtNum(wk.reduce((t, w) => t + volumeOf(w), 0))}</b><small>${state.settings.units}<br>lifted</small></div>
         <div><b>${h.length}</b><small>all-time<br>workouts</small></div>
       </section>`;
-    if (!h.length) return stats + '<p class="empty">No workouts yet. Build one on the Train tab and your history will show up here.</p>';
-    return stats + h.map((w) => {
+    const cardio = state.cardio || [];
+    if (!h.length && !cardio.length) return stats + '<p class="empty">No workouts yet. Build one on the Train tab, or start a walk on the Cardio tab, and it will show up here.</p>';
+    const items = h.map((w) => ({ t: w.date, html: () => {
       const dur = w.endedAt && w.date ? fmtClock((w.endedAt - w.date) / 1000) : '';
       return `
       <details class="hist">
         <summary><span><b>${w.muscles.map((m) => MUSCLE_NAME[m]).join(' + ')}</b>
-          <small>${fmtDate(w.date)} · ${esc(w.profileName || '')}${dur ? ' · ' + dur : ''}</small></span>
+          <small>${fmtDate(w.date)} · ${esc(w.profileName || '')}${dur ? ' · ' + dur : ''}${w.kcal ? ' · ~' + fmtNum(w.kcal) + ' kcal' : ''}</small></span>
           <span class="vol">${setsOf(w)} sets<small>${fmtNum(volumeOf(w))} ${state.settings.units}</small></span></summary>
         ${w.exercises.map((e) => `<div class="hx"><b>${esc(e.name)}</b><span>${e.sets.map((s) => (e.timed ? `${s.r}s` : `${s.w ? s.w + '×' : ''}${s.r}`)).join(' · ')}</span></div>`).join('')}
         <button class="link danger" data-act="hist-del" data-id="${w.id}">Delete workout</button>
-      </details>`;
-    }).join('');
+      </details>`; } }))
+      .concat(cardio.map((c) => ({ t: c.date, html: () => `
+      <div class="hist cardio-row">
+        <span><b>${esc(CARDIO.TYPE_NAME[c.type] || 'Cardio')}</b>${c.source === 'health' ? ' <span class="badge">Apple Health</span>' : ''}
+          <small>${fmtDate(c.date)} · ${fmtClock(c.dur)}${c.dist ? ` · ${c.dist} ${CARDIO.distUnit(state.settings.units)}` : ''}</small></span>
+        <span class="vol">${fmtNum(c.kcal || 0)}<small>kcal</small></span>
+      </div>` })))
+      .sort((a, b) => b.t - a.t);
+    return stats + items.map((x) => x.html()).join('');
   }
 
   function viewGear() {
@@ -387,7 +403,7 @@
     const y = window.scrollY;
     $('#profileChip').textContent = profile().name;
     $$('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === ui.tab));
-    $('#main').innerHTML = { train: viewTrain, library: viewLibrary, history: viewHistory, gear: viewGear }[ui.tab]();
+    $('#main').innerHTML = { train: viewTrain, cardio: C.view, library: viewLibrary, history: viewHistory, gear: viewGear }[ui.tab]();
     window.scrollTo(0, y);
     if (ui.tab === 'train') WPA.hydrate($('#main'));
     tick();
@@ -548,7 +564,10 @@
       if (confirm('No sets were logged. Discard this workout?')) { state.current = null; ui.restEnd = 0; save(); render(); }
       return;
     }
-    const rec = { id: w.id, date: w.startedAt || w.createdAt, endedAt: Date.now(), profileId: w.profileId, profileName: w.profileName, muscles: w.muscles, goal: w.goal, exercises };
+    const startedAt = w.startedAt || w.createdAt, endedAt = Date.now();
+    const durSec = Math.min(Math.max((endedAt - startedAt) / 1000, 300), 3 * 3600);
+    const kcal = CARDIO.kcalFor(CARDIO.metFor('strength'), CARDIO.toKg(state.settings.weight || (state.settings.units === 'kg' ? 75 : 165), state.settings.units), durSec);
+    const rec = { id: w.id, date: startedAt, endedAt, kcal, profileId: w.profileId, profileName: w.profileName, muscles: w.muscles, goal: w.goal, exercises };
     state.history.unshift(rec);
     state.current = null;
     ui.restEnd = 0;
@@ -597,7 +616,7 @@
       }
       case 'set-goal': state.settings.goal = d.v; save(); render(); break;
       case 'set-level': state.settings.level = d.v; save(); render(); break;
-      case 'set-units': state.settings.units = d.v; save(); render(); break;
+      case 'set-units': if (state.settings.weight && state.settings.units !== d.v) state.settings.weight = Math.round(d.v === 'kg' ? state.settings.weight * 0.4536 : state.settings.weight / 0.4536); state.settings.units = d.v; save(); render(); break;
       case 'count': state.settings.count = Math.min(12, Math.max(3, state.settings.count + +d.d)); save(); render(); break;
       case 'generate':
         if (generate()) { render(); window.scrollTo(0, 0); } else toast('No exercises match that profile');
@@ -724,7 +743,7 @@
           state = defaults(); save(); ui.tab = 'train'; render();
         }
         break;
-      default: break;
+      default: C.act(act, t); break;
     }
   }
 
@@ -740,6 +759,7 @@
 
   document.addEventListener('input', (ev) => {
     const t = ev.target;
+    if (C.input(t)) return;
     if (t.dataset && t.dataset.field && state.current) {
       const row = t.closest('.set');
       const s = state.current.exercises[+row.dataset.i].sets[+row.dataset.j];
@@ -758,6 +778,7 @@
 
   document.addEventListener('change', (ev) => {
     const t = ev.target;
+    if (C.change(t)) return;
     if (t.id === 'libMine') { ui.libMine = t.checked; $('#libList').innerHTML = libItems(); }
     else if (t.id === 'restToggle') { state.settings.restTimer = t.checked; save(); if (!t.checked) { ui.restEnd = 0; tick(); } }
     else if (t.dataset && t.dataset.equip && ui.draft) {
@@ -790,7 +811,9 @@
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
 
   /* ───────────── boot ───────────── */
+  C.bootHash();
   render();
+  C.boot();
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     navigator.serviceWorker.register('./sw.js').catch(() => { /* offline support is optional */ });
   }

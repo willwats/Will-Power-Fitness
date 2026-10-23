@@ -15,6 +15,8 @@ No account, no backend, no build step — it's a static web app that runs entire
 - **Logging** — weight + reps per set, last-time numbers shown and pre-filled, auto rest timer (with sound and vibration), workout summary.
 - **Recovery dots** on each muscle (red = trained in the last day or so, green = rested) based on your history.
 - **History** with weekly stats, **exercise library** with search, **export/import** backups.
+- **Cardio tab** — start a walk, run, hike or ride with a live timer, GPS distance, pace and calories; or log any cardio by hand (elliptical, rower, swim, HIIT…). A daily **calories burned** total shows on Cardio and Train, with a 7-day chart. Strength workouts get an estimated calorie count too.
+- **Apple Health bridge** — a one-time iOS Shortcut brings in your day's calories, steps and workouts (so walks not logged in the app still count), and another sends sessions from the app to Apple Fitness. See *Apple Health* below.
 - **Installable & offline** — works as a home-screen app (PWA).
 
 ## Put it on GitHub Pages
@@ -36,6 +38,15 @@ No account, no backend, no build step — it's a static web app that runs entire
 
 - **iPhone (Safari):** open the URL → Share → **Add to Home Screen**.
 - **Android (Chrome):** open the URL → menu → **Install app** / **Add to Home screen**.
+
+## Apple Health
+
+Web apps can't read Apple Health directly, so the app uses iOS Shortcuts as the bridge (full steps are in the app: **Cardio → Apple Health → Setup guide**).
+
+- **Sync in:** a Shortcut named `Will Power Sync` reads today's Active Energy, Steps (and optionally Workouts), and copies text like `#health&kcal=512&steps=8423&wtype=Walking&wmin=32&wkcal=178&wdist=1.8` to the clipboard. Tap **Sync Apple Health**, then **Paste from clipboard**. Opening a link ending in that `#health&…` text also imports it.
+- **Send out:** a Shortcut named `Will Power Log Workout` receives JSON (`type, minutes, kcal, miles, start, end`) and runs **Log Workout**. The **Send to Health** button on a session calls it.
+- **Daily total** = Apple Health calories + sessions logged in the app that weren't sent to Health (no double counting).
+- **Limits:** this is a manual hand-off, not background sync (that needs a native iOS app). iPhone suspends web apps when the screen locks, so the live GPS tracker works best with the screen on.
 
 ## Run it locally
 
@@ -70,5 +81,7 @@ Profiles, workouts and settings live in your browser's `localStorage` on the dev
 | `styles.css` | Styling (dark/light automatic) |
 | `exercises.js` | Exercise library, muscles and equipment lists |
 | `anim*.js` | Exercise animations: engine, movement templates, and the exercise → animation map |
+| `cardio.js` | Calorie (MET) maths, GPS distance filtering, daily totals, Apple Health link parsing |
+| `cardio-ui.js` | Cardio tab: live tracker, manual log, Health sync UI |
 | `app.js` | Profiles, generator, logging, history, UI |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Offline support and home-screen install |
