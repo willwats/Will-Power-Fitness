@@ -199,3 +199,24 @@ legend { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; co
   .sheet-panel { border-radius: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* exercise animations */
+.anim { width: 100%; }
+.wpa { width: 100%; height: auto; display: block; background: var(--card2); border-radius: 12px; }
+.wpa .gnd { stroke: var(--line); stroke-width: 1.5; }
+.wpa .p { stroke: var(--muted); fill: var(--muted); opacity: .75; }
+.wpa polyline { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.wpa .near { stroke: var(--text); stroke-width: 3.4; }
+.wpa .far { stroke: var(--text); stroke-width: 3; opacity: .35; }
+.wpa .head { fill: var(--card2); stroke: var(--text); stroke-width: 3; }
+.wpa .w { fill: var(--accent); }
+.wpa .wi { fill: var(--card2); }
+.wpa .w2 { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.wpa .wh { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.wpa .rope { stroke: var(--accent2); stroke-width: 1.2; stroke-dasharray: 2 1.5; }
+
+.ex header { display: flex; gap: 12px; align-items: flex-start; }
+.ex header .hd-text { flex: 1; min-width: 0; }
+.ex header .anim { width: 132px; flex: none; }
+.lib .anim { max-width: 300px; margin: 8px 0 4px; }
+@media (min-width: 720px) { .ex header .anim { width: 180px; } }

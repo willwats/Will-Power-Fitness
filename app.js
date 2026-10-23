@@ -213,7 +213,7 @@
         <div class="row between">
           <div><h2>What are we training?</h2>
           <p class="muted">Using <b>${esc(prof.name)}</b> · ${unlocked} exercises unlocked</p></div>
-          <button class="pill" data-act="open-profiles">Switch</button>
+          <div class="row gap"><button class="pill" data-act="edit-profile" data-id="${prof.id}">Edit gear</button><button class="pill" data-act="open-profiles">Switch</button></div>
         </div>
         <div class="pills">${presets}</div>
         <div class="chips">${chips}</div>
@@ -243,8 +243,9 @@
     return `
       <article class="ex" data-i="${i}">
         <header>
-          <div><h3>${esc(ex.name)}</h3>
+          <div class="hd-text"><h3>${esc(ex.name)}</h3>
           <p class="meta">${MUSCLE_NAME[ex.muscle]} · ${esc(equipLabel(ex))} · <b>${entry.target.sets} × ${esc(entry.target.reps)}${ex.timed ? 's' : ''}</b></p></div>
+          <div class="anim" data-ex="${ex.id}"></div>
         </header>
         <p class="cue">${esc(ex.cue)}</p>
         <p class="last">${esc(lastTxt)}</p>
@@ -298,6 +299,7 @@
     return list.map((e) => `
       <details class="lib">
         <summary><span><b>${esc(e.name)}</b><small>${MUSCLE_NAME[e.muscle]} · ${esc(equipLabel(e))}</small></span>${isAvailable(e, owned) ? '' : '<em class="needgear">needs gear</em>'}</summary>
+        <div class="anim" data-ex="${e.id}"></div>
         <p>${esc(e.cue)}</p>
         <p class="tags"><span>${LEVELS[e.level]}</span>${e.compound ? '<span>Compound</span>' : '<span>Isolation</span>'}${e.secondary.map((s) => `<span>+ ${MUSCLE_NAME[s]}</span>`).join('')}</p>
         ${state.current && isAvailable(e, owned) ? `<button class="pill" data-act="lib-add" data-id="${e.id}">Add to current workout</button>` : ''}
@@ -387,6 +389,7 @@
     $$('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === ui.tab));
     $('#main').innerHTML = { train: viewTrain, library: viewLibrary, history: viewHistory, gear: viewGear }[ui.tab]();
     window.scrollTo(0, y);
+    if (ui.tab === 'train') WPA.hydrate($('#main'));
     tick();
   }
 
@@ -780,6 +783,9 @@
       t.value = '';
     }
   });
+
+  // library items only mount their animation once opened
+  document.addEventListener('toggle', (ev) => { if (ev.target.open && ev.target.classList.contains('lib')) WPA.hydrate(ev.target); }, true);
 
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
 

@@ -10,6 +10,7 @@ No account, no backend, no build step — it's a static web app that runs entire
 - **Equipment profiles** — create as many as you want (e.g. *Gym*, *Home – Upstairs*). Each profile is a checklist of gear; workouts only ever use exercises you can do with the active profile.
 - **169 exercises** with form cues, from bodyweight to full gym, tagged by muscle, equipment, difficulty and compound/isolation.
 - **Workout generator** — splits the exercise budget across your target muscles, leads with compound lifts, finishes with isolation/core, and avoids repeating what you did in your last few workouts. Choose goal (Strength / Muscle / Endurance), experience level and number of exercises.
+- **Animated demos** — every exercise has a looping stick-figure animation (with the weight or cable it uses) showing the movement pattern. On workout cards and in the library.
 - **Swap / add / remove** any exercise, add or drop sets.
 - **Logging** — weight + reps per set, last-time numbers shown and pre-filled, auto rest timer (with sound and vibration), workout summary.
 - **Recovery dots** on each muscle (red = trained in the last day or so, green = rested) based on your history.
@@ -68,5 +69,6 @@ Profiles, workouts and settings live in your browser's `localStorage` on the dev
 | `index.html` | App shell |
 | `styles.css` | Styling (dark/light automatic) |
 | `exercises.js` | Exercise library, muscles and equipment lists |
+| `anim*.js` | Exercise animations: engine, movement templates, and the exercise → animation map |
 | `app.js` | Profiles, generator, logging, history, UI |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Offline support and home-screen install |
