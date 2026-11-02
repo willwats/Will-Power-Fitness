@@ -13,6 +13,8 @@ No account, no backend, no build step — it's a static web app that runs entire
 - **169 exercises** with form cues, from bodyweight to full gym, tagged by muscle, equipment, difficulty and compound/isolation.
 - **Workout generator** — splits the exercise budget across your target muscles, leads with compound lifts, finishes with isolation/core, and avoids repeating what you did in your last few workouts. Choose goal (Strength / Muscle / Endurance), experience level and number of exercises.
 - **Animated demos** — every exercise has a looping animation of an athlete (shorts, shoes, the weight or cable it uses) showing the movement, with the muscle you're training glowing. On workout cards and in the library.
+- **Form guide** — tap any exercise animation for a large view with slow motion, pause, numbered start/finish ghost poses, plain-language steps and form tips. Animations zoom in on the movement.
+- **Remembers your weights** — pre-fills last time's weight and suggests the next step (add weight once you hit the top of the rep range, ease off if it was too heavy), estimates a starting weight for exercises you haven't done from similar lifts, flags personal records, and shows strength progress in History.
 - **Swap / add / remove** any exercise, add or drop sets.
 - **Logging** — weight + reps per set, last-time numbers shown and pre-filled, auto rest timer (with sound and vibration), workout summary.
 - **Recovery dots** on each muscle (red = trained in the last day or so, green = rested) based on your history.
@@ -88,5 +90,7 @@ Profiles, workouts and settings live in your browser's `localStorage` on the dev
 | `cardio.js` | Calorie (MET) maths, GPS distance filtering, daily totals, Apple Health link parsing |
 | `cardio-ui.js` | Cardio tab: live tracker, manual log, Health sync UI |
 | `body.js`, `body-ui.js` | Height/weight/ideal-weight maths, training focus options, profile sheet |
+| `progress.js` | Weight memory: progressive-overload suggestions, estimates, PRs, progress summaries |
+| `guide.js` | Form guide text (steps and tips) |
 | `app.js` | Profiles, generator, logging, history, UI |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Offline support and home-screen install |

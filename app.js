@@ -271,7 +271,7 @@
         <header>
           <div class="hd-text"><h3>${esc(ex.name)}</h3>
           <p class="meta">${MUSCLE_NAME[ex.muscle]} · ${esc(equipLabel(ex))} · <b>${entry.target.sets} × ${esc(entry.target.reps)}${ex.timed ? 's' : ''}</b></p></div>
-          <div class="anim" data-ex="${ex.id}"></div>
+          <div class="anim" data-ex="${ex.id}" data-act="form-guide" role="button" tabindex="0" aria-label="Open form guide for ${esc(ex.name)}"></div>
         </header>
         <p class="cue">${esc(ex.cue)}</p>
         ${entry.note ? `<p class="sugg ${entry.nkind}"><span aria-hidden="true">${entry.nkind === 'progress' || entry.nkind === 'reps' ? '▲' : entry.nkind === 'lighter' ? '▼' : entry.nkind === 'estimate' ? '≈' : '='}</span> ${esc(entry.note)}</p>` : ''}
@@ -327,7 +327,7 @@
     return list.map((e) => `
       <details class="lib">
         <summary><span><b>${esc(e.name)}</b><small>${MUSCLE_NAME[e.muscle]} · ${esc(equipLabel(e))}</small></span>${isAvailable(e, owned) ? '' : '<em class="needgear">needs gear</em>'}</summary>
-        <div class="anim" data-ex="${e.id}"></div>
+        <div class="anim" data-ex="${e.id}" data-act="form-guide" role="button" tabindex="0" aria-label="Open form guide for ${esc(e.name)}"></div>
         <p>${esc(e.cue)}</p>
         <p class="tags"><span>${LEVELS[e.level]}</span>${e.compound ? '<span>Compound</span>' : '<span>Isolation</span>'}${e.secondary.map((s) => `<span>+ ${MUSCLE_NAME[s]}</span>`).join('')}</p>
         ${state.current && isAvailable(e, owned) ? `<button class="pill" data-act="lib-add" data-id="${e.id}">Add to current workout</button>` : ''}
@@ -485,6 +485,30 @@
         <b>${esc(e.name)}</b><small>${MUSCLE_NAME[e.muscle]} · ${esc(equipLabel(e))} · ${LEVELS[e.level]}</small>
       </button>`).join('');
   }
+
+  function sheetGuide(exId) {
+    const ex = EX_BY_ID[exId]; if (!ex) return;
+    const spec = WPA.forExercise(ex), tpl = WPA.T[spec.tpl];
+    const gear = ex.equip.length ? equipLabel(ex) : '';
+    const sec = (ex.secondary || []).map((m) => MUSCLE_NAME[m]);
+    openSheet(ex.name, `
+      <div class="anim big" id="guideAnim" data-ex="${ex.id}"></div>
+      <div class="phase" id="guidePhase" aria-live="off"></div>
+      <div class="gctrl">
+        <button class="pill" data-act="g-play" id="gPlay">⏸ Pause</button>
+        <div class="seg" role="group" aria-label="Speed"><button data-act="g-speed" data-v="0.5" id="gs-0.5">Slow</button><button data-act="g-speed" data-v="1" id="gs-1" class="on">Normal</button></div>
+      </div>
+      ${tpl && !tpl.loop ? '<div class="gctrl two"><button class="pill" data-act="g-seek" data-v="0">① Show start</button><button class="pill" data-act="g-seek" data-v="1">② Show finish</button></div>' : ''}
+      <div class="tags"><span>${MUSCLE_NAME[ex.muscle]}${sec.length ? ' + ' + sec.join(', ') : ''}</span><span>${esc(equipLabel(ex))}</span><span>${GUIDE.LEVEL[ex.level]}</span></div>
+      <h3>How to do it</h3>
+      <ol class="guide">${GUIDE.steps(ex, tpl, gear).map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+      <h3>Watch for</h3>
+      <ul class="guide">${GUIDE.tips(ex).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      <p class="muted small">The glowing area is the muscle this works. The faint figures show the start (1) and finish (2) positions.</p>
+      <button class="primary big" data-act="close-sheet">Got it</button>`);
+    WPA.hydrate($('#sheetBody'));
+  }
+  const guideM = () => { const h = $('#guideAnim'); return h && h.__wpa; };
 
   function sheetSwap(i) {
     const w = state.current;
@@ -655,6 +679,10 @@
       case 'discard':
         if (confirm('Discard this workout?')) { state.current = null; ui.restEnd = 0; save(); render(); }
         break;
+      case 'form-guide': sheetGuide(d.ex); break;
+      case 'g-play': { const m = guideM(); if (m) { m.playing ? m.pause() : m.play(); t.textContent = m.playing ? '⏸ Pause' : '▶ Play'; } break; }
+      case 'g-speed': { const m = guideM(); if (m) { m.speed = +d.v; $$('[data-act="g-speed"]').forEach((b) => b.classList.toggle('on', b === t)); } break; }
+      case 'g-seek': { const m = guideM(); if (m) { const K = m.tpl.poses.length; m.pause(); m.seek(+d.v ? (K - 1) / (2 * K - 2) : 0); $('#gPlay').textContent = '▶ Play'; } break; }
       case 'start-workout': if (w && !w.startedAt) { w.startedAt = Date.now(); save(); render(); } break;
       case 'finish': finishWorkout(); break;
 
@@ -839,7 +867,10 @@
   // library items only mount their animation once opened
   document.addEventListener('toggle', (ev) => { if (ev.target.open && ev.target.classList.contains('lib')) WPA.hydrate(ev.target); }, true);
 
-  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && !$('#sheet').hidden) closeSheet();
+    if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.classList && ev.target.classList.contains('anim') && ev.target.dataset.act) { ev.preventDefault(); handleAction(ev.target.dataset.act, ev.target); }
+  });
 
   /* ───────────── boot ───────────── */
   C.bootHash();

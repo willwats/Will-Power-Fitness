@@ -121,7 +121,16 @@ const WPA = (() => {
     calves: { n: 2, f: (G, i) => ellAlong(G.legs[i][1], G.legs[i][2], 6.2) },
   };
 
-  function build(host, name, held, label, muscle) {
+  const BODY_EL = (e) => `${e('path', 'skin far', 'fa1')}${e('path', 'skin far', 'fa2')}${e('circle', 'skin far', 'fh')}
+      ${e('path', 'skin far', 'fl1')}${e('path', 'skin far', 'fl2')}${e('path', 'short far', 'fs')}${e('ellipse', 'shoe far', 'ff')}
+      ${e('path', 'shirt', 'tr')}${e('circle', 'short', 'hp')}
+      ${e('path', 'skin', 'nk')}
+      ${e('path', 'skin', 'lg1')}${e('path', 'skin', 'lg2')}${e('path', 'short', 'ns')}${e('ellipse', 'shoe', 'nf')}
+      ${e('path', 'skin', 'ar1')}${e('path', 'skin', 'ar2')}${e('circle', 'skin', 'nh')}`;
+  const HEAD_EL = (e) => `${e('circle', 'hair', 'hr')}${e('circle', 'skin', 'hd')}${e('circle', 'skin', 'ns2')}`;
+  const refIn = (root) => { const r = {}; root.querySelectorAll('[data-r]').forEach((n) => { r[n.dataset.r] = n; }); return r; };
+
+  function build(host, name, held, label, muscle, opts = {}) {
     const tpl = T[name];
     host.innerHTML = '';
     const svg = document.createElementNS(NS, 'svg');
@@ -132,24 +141,25 @@ const WPA = (() => {
     const anchor = tpl.anchor;
     const hl = HL[muscle];
     const e = (tag, cls, r) => `<${tag} class="${cls}" data-r="${r}"/>`;
+    const ghost = (k) => `<g class="ghost" data-g="${k}">${BODY_EL(e)}${HEAD_EL(e)}</g>`;
     svg.innerHTML = `
-      <line class="gnd" x1="4" y1="${GY}" x2="156" y2="${GY}"/>
+      <line class="gnd" x1="-60" y1="${GY}" x2="220" y2="${GY}"/>
       <ellipse class="shadow" cx="80" cy="${GY + 0.5}" rx="22" ry="1.6"/>
       ${tpl.static || ''}
       ${anchor && (held === 'rope' || tpl.rope) ? `<circle class="p" cx="${anchor[0]}" cy="${anchor[1]}" r="2.2"/><line class="rope" x1="0" y1="0" x2="${anchor[0]}" y2="${anchor[1]}"/>` : ''}
-      ${e('path', 'skin far', 'fa1')}${e('path', 'skin far', 'fa2')}${e('circle', 'skin far', 'fh')}
-      ${e('path', 'skin far', 'fl1')}${e('path', 'skin far', 'fl2')}${e('path', 'short far', 'fs')}${e('ellipse', 'shoe far', 'ff')}
-      ${e('path', 'shirt', 'tr')}${e('circle', 'short', 'hp')}
-      ${e('path', 'skin', 'nk')}
-      ${e('path', 'skin', 'lg1')}${e('path', 'skin', 'lg2')}${e('path', 'short', 'ns')}${e('ellipse', 'shoe', 'nf')}
-      ${e('path', 'skin', 'ar1')}${e('path', 'skin', 'ar2')}${e('circle', 'skin', 'nh')}
+      ${opts.ghosts ? ghost(0) + ghost(1) : ''}
+      ${BODY_EL(e)}
       ${hl ? Array.from({ length: hl.n }, (_, i) => e('ellipse', 'hl', 'hl' + i)).join('') : ''}
-      ${e('circle', 'hair', 'hr')}${e('circle', 'skin', 'hd')}${e('circle', 'skin', 'ns2')}
-      ${held && held !== 'rope' && !tpl.rope && HELD[held] ? `<g class="held">${HELD[held]}</g>` : ''}`;
+      ${HEAD_EL(e)}
+      ${held && held !== 'rope' && !tpl.rope && HELD[held] ? `<g class="held">${HELD[held]}</g>` : ''}
+      ${opts.ghosts ? '<g class="gbadge" data-b="0"><circle r="4.2"/><text y="1.6">1</text></g><g class="gbadge" data-b="1"><circle r="4.2"/><text y="1.6">2</text></g>' : ''}`;
     host.appendChild(svg);
-    const ref = { svg, hl, held: svg.querySelector('.held'), rope: svg.querySelector('.rope'), hls: [] };
-    svg.querySelectorAll('[data-r]').forEach((n) => { ref[n.dataset.r] = n; });
+    // the live figure's elements are the direct children of the svg (ghosts live inside <g class="ghost">)
+    const ref = { svg, hl, held: svg.querySelector('.held'), rope: svg.querySelector('.rope'), hls: [], ghosts: [] };
+    svg.querySelectorAll('[data-r]').forEach((n) => { if (!n.closest('.ghost')) ref[n.dataset.r] = n; });
     if (hl) for (let i = 0; i < hl.n; i++) ref.hls.push(ref['hl' + i]);
+    svg.querySelectorAll('.ghost').forEach((g) => ref.ghosts.push(refIn(g)));
+    ref.badges = Array.from(svg.querySelectorAll('.gbadge'));
     return ref;
   }
 
@@ -206,6 +216,7 @@ const WPA = (() => {
     applyHL(ref, G);
     if (ref.held) ref.held.setAttribute('transform', `translate(${f1(ra[2][0])} ${f1(ra[2][1])})`);
     if (ref.rope) { ref.rope.setAttribute('x1', f1(ra[2][0])); ref.rope.setAttribute('y1', f1(ra[2][1])); }
+    return [ra[2], la[2], rl[2], ll[2], ra[0], la[0], [80, neckY - 14], [80, hipY]];
   }
 
   function draw(ref, p, tpl) {
@@ -232,6 +243,7 @@ const WPA = (() => {
     applyHL(ref, { hip, sh, n, axis: deg(sh[0] - hip[0], sh[1] - hip[1]), arms: [[sh, arm.j, arm.e], [sh, arm2.j, arm2.e]], legs: [[hip, leg.j, leg.e], [hip, leg2.j, leg2.e]] });
     if (ref.held) ref.held.setAttribute('transform', `translate(${f1(arm.e[0])} ${f1(arm.e[1])})`);
     if (ref.rope) { ref.rope.setAttribute('x1', f1(arm.e[0])); ref.rope.setAttribute('y1', f1(arm.e[1])); }
+    return [hip, sh, hc, arm.e, arm2.e, leg.e, leg2.e, leg.j, leg2.j, arm.j];
   }
 
   /** Pose at progress u in [0,1) of the looping cycle. */
@@ -248,31 +260,95 @@ const WPA = (() => {
 
   /* ── mounting & the shared animation loop ── */
   const live = new Set();
-  let raf = 0, io = null;
+  let raf = 0, io = null, lastTs = 0;
+
+  /** Where the movement is: start / finish hold, or travelling out / back (null for looping moves). */
+  function phaseOf(tpl, u) {
+    if (tpl.loop) return null;
+    const K = tpl.poses.length, n = 2 * K - 2, x = (((u % 1) + 1) % 1) * n, j = Math.round(x);
+    if (Math.abs(x - j) < 0.1) { const idx = Math.min(j % n, n - (j % n || n)); return idx === 0 ? 'start' : idx === K - 1 ? 'finish' : 'mid'; }
+    return x < K - 1 ? 'out' : 'back';
+  }
+  const PHASE_TXT = { start: '① Start position', finish: '② Finish position', out: 'Moving to ② …', back: 'Returning slowly to ① …', mid: '' };
+
+  function paint(m) {
+    draw(m.ref, frame(m.tpl, m.u), m.tpl);
+    if (m.phaseEl) { const ph = phaseOf(m.tpl, m.u); const t = ph ? PHASE_TXT[ph] : 'Repeat at a steady pace'; if (m.phaseEl.textContent !== t) { m.phaseEl.textContent = t; m.phaseEl.dataset.phase = ph || 'loop'; } }
+  }
   function loop(ts) {
+    const dt = lastTs ? Math.min(100, ts - lastTs) : 16;
+    lastTs = ts;
     for (const m of live) {
       if (!m.host.isConnected) { live.delete(m); continue; }
-      if (!m.vis || m.reduce) continue;
-      draw(m.ref, frame(m.tpl, (ts % m.tpl.dur || 0) / m.tpl.dur + m.phase), m.tpl);
+      if (!m.vis || m.reduce || !m.playing) continue;
+      m.u = (m.u + (dt * m.speed) / m.tpl.dur) % 1;
+      paint(m);
     }
     raf = live.size && !document.hidden ? requestAnimationFrame(loop) : 0;
+    if (!raf) lastTs = 0;
   }
   const kick = () => { if (!raf && live.size) raf = requestAnimationFrame(loop); };
   document.addEventListener('visibilitychange', kick);
 
-  function mount(host, name, held, label, muscle) {
+  /** Frame the figure: zoom the view box to the space the movement (and its props) actually uses. */
+  function fitView(tpl, ref) {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+    for (let i = 0; i < 24; i++) { const pts = draw(ref, frame(tpl, i / 24), tpl); if (pts) pts.forEach((p) => add(p[0], p[1])); }
+    const st = tpl.static || '';
+    for (const m of st.matchAll(/x1="(-?[\d.]+)" y1="(-?[\d.]+)" x2="(-?[\d.]+)" y2="(-?[\d.]+)"/g)) { add(+m[1], +m[2]); add(+m[3], +m[4]); }
+    for (const m of st.matchAll(/\sx="(-?[\d.]+)" y="(-?[\d.]+)" width="(-?[\d.]+)" height="(-?[\d.]+)"/g)) { add(+m[1], +m[2]); add(+m[1] + +m[3], +m[2] + +m[4]); }
+    if (tpl.anchor) add(tpl.anchor[0], tpl.anchor[1]);
+    add((x0 + x1) / 2, GY + 1);
+    const pad = 10;
+    let w = Math.max(x1 - x0 + 2 * pad, (y1 - y0 + 2 * pad) * 1.6, 84);
+    w = Math.min(w, VB_W);
+    const h = w / 1.6;
+    const vx = Math.min(Math.max((x0 + x1) / 2 - w / 2, 0), VB_W - w), vy = Math.min(Math.max((y0 + y1) / 2 - h / 2, 0), VB_H - h);
+    ref.svg.setAttribute('viewBox', `${f1(vx)} ${f1(vy)} ${f1(w)} ${f1(h)}`);
+  }
+
+  function paintGhosts(m) {
+    const { tpl, ref } = m;
+    if (!ref.ghosts.length) return;
+    const K = tpl.poses.length, uEnd = tpl.loop ? 0.5 : (K - 1) / (2 * K - 2);
+    const at = [0, uEnd].map((u, i) => {
+      draw(ref.ghosts[i], frame(tpl, u), tpl);
+      const g = ref.ghosts[i], c = (el) => [+el.getAttribute('cx'), +el.getAttribute('cy')];
+      return { hand: c(g.nh), head: c(g.hd) };
+    });
+    // number the two poses at the moving hand when it travels; otherwise beside the head
+    const moved = Math.hypot(at[0].hand[0] - at[1].hand[0], at[0].hand[1] - at[1].hand[1]) > 7;
+    at.forEach((p, i) => {
+      const b = ref.badges[i]; if (!b) return;
+      const [x, y] = moved ? [p.hand[0], p.hand[1] - 8] : [p.head[0] + (i ? 8 : -8), p.head[1] - 9];
+      b.setAttribute('transform', `translate(${f1(x)} ${f1(y)})`);
+    });
+  }
+
+  function mount(host, name, held, label, muscle, opts = {}) {
     const tpl = T[name];
-    if (!tpl) return;
+    if (!tpl) return null;
     tpl.dur = tpl.dur || 2800;
-    const ref = build(host, name, held, label, muscle);
-    const m = { host, ref, tpl, phase: 0, vis: true, reduce: window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches };
-    draw(ref, frame(tpl, m.reduce ? 0 : 0.5), tpl);      // paint something immediately
-    if (m.reduce) draw(ref, frame(tpl, 0.25), tpl);
+    const ref = build(host, name, held, label, muscle, opts);
+    const m = { host, ref, tpl, u: 0, speed: 1, playing: true, vis: true, phaseEl: opts.phaseEl || null,
+      reduce: window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches };
+    m.play = () => { m.playing = true; kick(); };
+    m.pause = () => { m.playing = false; };
+    m.seek = (u) => { m.u = u; paint(m); };
+    fitView(tpl, ref);
+    // ghosts are drawn into their own elements, so they need the view fitted first
+    if (ref.ghosts.length) {
+      paintGhosts(m);
+    }
+    paint(m);                                           // start position first — new users see where to begin
+    if (m.reduce) { m.u = 0.5; paint(m); }
     if ('IntersectionObserver' in window) {
       io = io || new IntersectionObserver((es) => es.forEach((e) => { const mm = e.target.__wpa; if (mm) { mm.vis = e.isIntersecting; if (mm.vis) kick(); } }), { rootMargin: '80px' });
       host.__wpa = m; m.vis = false; io.observe(host);
-    }
+    } else host.__wpa = m;
     live.add(m); kick();
+    return m;
   }
 
   /** Mount every <div class="anim" data-ex="…"> under root that isn't mounted yet. */
@@ -282,7 +358,8 @@ const WPA = (() => {
       if (!ex) return;
       const spec = WPA.forExercise(ex);
       el.dataset.on = '1';
-      mount(el, spec.tpl, spec.held, `How to do ${ex.name}`, ex.muscle);
+      const big = el.classList.contains('big');
+      mount(el, spec.tpl, spec.held, `How to do ${ex.name}`, ex.muscle, big ? { ghosts: true, phaseEl: document.getElementById('guidePhase') } : {});
     });
   }
 
