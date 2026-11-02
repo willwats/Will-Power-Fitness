@@ -94,3 +94,12 @@ Profiles, workouts and settings live in your browser's `localStorage` on the dev
 | `guide.js` | Form guide text (steps and tips) |
 | `app.js` | Profiles, generator, logging, history, UI |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Offline support and home-screen install |
+
+
+## Planner, tracking and more
+- **Weekly plan** (Train tab): pick training days and a split (auto / full body / upper-lower / PPL / body-part). Suggests today's workout from your last session and recovery. **Add weekly reminders** downloads a calendar (.ics) file with a 15-minute alert — iOS web push is unreliable, so Calendar is used.
+- **Warm-up sets** (auto-added before the first heavy lift per muscle) and **supersets** (optional toggle in the builder). Warm-ups don't count toward PRs or volume.
+- **Weight prefill**: the weight you enter fills the remaining sets of that exercise.
+- **History → Body**: weight log with trend chart and ideal-weight line, measurements, and progress photos (stored only on the device, not in backups).
+- **Water & protein** tracker on Train, with targets from your weight and training focus.
+- Files added: `plan.js`, `plan-ui.js`, `track.js`, `track-ui.js`. `native/` holds an unverified iPhone (Capacitor) scaffold.

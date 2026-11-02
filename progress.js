@@ -31,7 +31,8 @@ const PROG = (() => {
   function lastSets(history, exId) {
     for (const w of history) {
       const e = (w.exercises || []).find((x) => x.exId === exId);
-      if (e && e.sets && e.sets.length) return { sets: e.sets, date: w.date };
+      const ws = e && e.sets ? e.sets.filter((s) => !s.warm) : [];
+      if (ws.length) return { sets: ws, date: w.date };
     }
     return null;
   }
@@ -42,7 +43,7 @@ const PROG = (() => {
     for (const w of history) {
       const e = (w.exercises || []).find((x) => x.exId === exId);
       if (!e) continue;
-      for (const s of e.sets) { const w1 = num(s.w), r = num(s.r); if (w1 > 0 && r > 0) { const v = e1rm(w1, r); if (!best || v > best.v) best = { v, w: w1, r }; } }
+      for (const s of e.sets) { if (s.warm) continue; const w1 = num(s.w), r = num(s.r); if (w1 > 0 && r > 0) { const v = e1rm(w1, r); if (!best || v > best.v) best = { v, w: w1, r }; } }
       if (++seen >= n) break;
     }
     return best;
@@ -118,7 +119,7 @@ const PROG = (() => {
       const ex = exById[e.exId]; if (!ex || !weighted(ex)) continue;
       const prior = bestE1rm(history, e.exId, 1000);
       let top = null;
-      for (const s of e.sets) { const w = num(s.w), r = num(s.r); if (w > 0 && r > 0) { const v = e1rm(w, r); if (!top || v > top.v) top = { v, w, r }; } }
+      for (const s of e.sets) { if (s.warm) continue; const w = num(s.w), r = num(s.r); if (w > 0 && r > 0) { const v = e1rm(w, r); if (!top || v > top.v) top = { v, w, r }; } }
       if (top && (!prior || top.v > prior.v * 1.005)) out.push({ exId: e.exId, name: ex.name, w: top.w, r: top.r, first: !prior });
     }
     return out.filter((p) => !p.first || out.length <= 3);
@@ -131,7 +132,7 @@ const PROG = (() => {
       const ex = exById[e.exId]; if (!ex || !weighted(ex)) continue;
       if (!seen.has(e.exId)) seen.set(e.exId, []);
       let top = 0, tw = 0, tr = 0;
-      for (const s of e.sets) { const v = e1rm(num(s.w), num(s.r)); if (num(s.w) > 0 && v > top) { top = v; tw = num(s.w); tr = num(s.r); } }
+      for (const s of e.sets) { if (s.warm) continue; const v = e1rm(num(s.w), num(s.r)); if (num(s.w) > 0 && v > top) { top = v; tw = num(s.w); tr = num(s.r); } }
       if (top) seen.get(e.exId).push({ date: w.date, v: top, w: tw, r: tr });
     }
     return [...seen.entries()].filter(([, list]) => list.length).map(([exId, list]) => {

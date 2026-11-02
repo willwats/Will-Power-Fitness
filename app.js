@@ -48,7 +48,7 @@
       v: 1,
       profiles: [gym, home],
       activeProfile: gym.id,
-      settings: { units: 'lb', goal: 'hypertrophy', level: 'intermediate', count: 6, restTimer: true, weight: 0 },
+      settings: { units: 'lb', goal: 'hypertrophy', level: 'intermediate', count: 6, restTimer: true, weight: 0, warmups: true, supersets: false },
       selected: [],
       regions: {},
       history: [],
@@ -57,6 +57,10 @@
       health: {},
       cardioLive: null,
       body: { heightCm: 0, ideal: 0, focus: '', set: false },
+      plan: { days: [false, true, false, true, false, true, false], split: 'auto', time: '18:00', set: false },
+      weights: [],
+      measures: [],
+      intake: {},
     };
   }
   function load() {
@@ -80,6 +84,14 @@
     openSheet: (t, h) => openSheet(t, h), closeSheet: () => closeSheet(), esc, fmtClock, fmtNum, fmtDate, uid, num,
   });
 
+  const P = WPP({
+    state: () => state, save: () => save(), render: () => render(), ui, toast: (m) => toast(m),
+    openSheet: (t, h) => openSheet(t, h), closeSheet: () => closeSheet(), esc, build: (m) => buildFor(m),
+  });
+  const T = WPT({
+    state: () => state, save: () => save(), render: () => render(), ui, toast: (m) => toast(m),
+    openSheet: (t, h) => openSheet(t, h), closeSheet: () => closeSheet(), esc, num, fmtNum,
+  });
   const B = WPB({
     state: () => state, save: () => save(), render: () => render(), ui, toast: (m) => toast(m),
     openSheet: (t, h) => openSheet(t, h), closeSheet: () => closeSheet(), esc, num,
@@ -106,12 +118,13 @@
   function lastLog(exId) {
     for (const w of state.history) {
       const e = w.exercises.find((x) => x.exId === exId);
-      if (e && e.sets.length) return e.sets;
+      const ws = e ? e.sets.filter((s) => !s.warm) : [];
+      if (ws.length) return ws;
     }
     return null;
   }
-  const volumeOf = (w) => w.exercises.reduce((t, e) => t + (e.timed ? 0 : e.sets.reduce((a, s) => a + s.w * s.r, 0)), 0);
-  const setsOf = (w) => w.exercises.reduce((t, e) => t + e.sets.length, 0);
+  const volumeOf = (w) => w.exercises.reduce((t, e) => t + (e.timed ? 0 : e.sets.filter((s) => !s.warm).reduce((a, s) => a + s.w * s.r, 0)), 0);
+  const setsOf = (w) => w.exercises.reduce((t, e) => t + e.sets.filter((s) => !s.warm).length, 0);
 
   /* ───────────── workout generation ───────────── */
   function prescription(ex, goal) {
@@ -124,6 +137,42 @@
     const sg = PROG.suggest(ex, target, state.history, state.settings.units, EX_BY_ID);
     const sets = sg.sets.map((s) => ({ w: ex.timed ? '' : s.w, r: s.r, done: false }));
     return { exId: ex.id, target, sets, note: sg.note, nkind: sg.kind };
+  }
+
+  /* Pair antagonist muscles (chest/back, biceps/triceps, quads/hamstrings) — or two isolation lifts — as supersets. */
+  function pairSupersets(list) {
+    const ANT = { chest: 'back', back: 'chest', biceps: 'triceps', triceps: 'biceps', quads: 'hamstrings', hamstrings: 'quads' };
+    const used = new Set(), out = [], ssOf = new Map();
+    let n = 0;
+    list.forEach((e, a) => {
+      if (used.has(e)) return;
+      used.add(e); out.push(e);
+      let f = list.find((x, k) => k > a && !used.has(x) && x.muscle === ANT[e.muscle]);
+      if (!f && !e.compound) f = list.find((x, k) => k > a && !used.has(x) && !x.compound);
+      if (f) { used.add(f); out.push(f); const L = String.fromCharCode(65 + n++); ssOf.set(e, [L, 1]); ssOf.set(f, [L, 2]); }
+    });
+    return { out, ssOf };
+  }
+  /* Ramp-up sets before the first heavy lift for each muscle. */
+  function addWarmups(entries) {
+    const u = state.settings.units, min = u === 'kg' ? 20 : 45, done = new Set();
+    entries.forEach((en) => {
+      const ex = EX_BY_ID[en.exId];
+      if (en.ss || !PROG.weighted(ex) || done.has(ex.muscle)) return;
+      const W = Math.max(0, ...en.sets.map((s) => num(s.w)));
+      if (!(W >= min)) return;
+      const kind = PROG.kindOf(ex), inc = u === 'kg' ? 2.5 : (kind === 'dumbbell' || kind === 'kettlebell' ? 2.5 : 5);
+      const plan = ex.compound && W >= (u === 'kg' ? 50 : 100) ? [[0.4, 8], [0.6, 5], [0.8, 3]] : [[0.5, 8], [0.75, 4]];
+      const warm = plan.map(([f, r]) => ({ w: Math.max(kind === 'barbell' ? min : inc, Math.round((W * f) / inc) * inc), r, done: false, warm: true, wm: true }))
+        .filter((s, k, arr) => s.w < W && (k === 0 || s.w !== arr[k - 1].w))
+        .map((s) => ({ ...s, w: String(s.w), r: String(s.r) }));
+      if (warm.length) { en.sets = [...warm, ...en.sets]; done.add(ex.muscle); }
+    });
+  }
+  function buildFor(muscles) {
+    state.selected = muscles.filter((m) => poolCount(m, profile().equipment) > 0);
+    if (state.selected.length && generate()) { ui.trainMode = 'strength'; ui.tab = 'train'; render(); window.scrollTo(0, 0); }
+    else toast('No exercises available for that with this equipment profile');
   }
 
   function generate() {
@@ -186,11 +235,20 @@
     const rank = (e) => (e.muscle === 'core' ? 2 : e.compound ? 0 : 1);
     chosen.sort((a, b) => rank(a) - rank(b));
 
+    let order = chosen, ssOf = new Map();
+    if (state.settings.supersets && chosen.length > 1) ({ out: order, ssOf } = pairSupersets(chosen));
+    const entries = order.map((e) => {
+      const en = makeEntry(e, goal), ss = ssOf.get(e);
+      if (ss) { en.ss = ss[0]; en.ssPos = ss[1]; }
+      return en;
+    });
+    if (state.settings.warmups) addWarmups(entries);
+
     state.current = {
       id: uid(), createdAt: Date.now(), startedAt: null,
       profileId: prof.id, profileName: prof.name, muscles, goal,
       regions: Object.fromEntries(muscles.filter((m) => state.regions[m]).map((m) => [m, state.regions[m]])),
-      exercises: chosen.map((e) => makeEntry(e, goal)),
+      exercises: entries,
     };
     save();
     return true;
@@ -200,7 +258,7 @@
   function viewTrain() {
     if (state.current) return viewWorkout();
     if (ui.trainMode === 'cardio') return C.modeSwitch() + C.trainView();
-    return C.modeSwitch() + B.trainBanner() + C.liveBanner() + C.todayMini() + viewBuilder();
+    return C.modeSwitch() + B.trainBanner() + P.trainCard() + C.liveBanner() + C.todayMini() + T.nutritionCard() + viewBuilder();
   }
 
   function viewBuilder() {
@@ -247,6 +305,8 @@
       <section class="card">
         <div class="field"><label>Goal</label>${seg('goal', Object.entries(GOALS).map(([k, g]) => [k, g.label]))}</div>
         <div class="field"><label>Experience</label>${seg('level', [['beginner', 'Beginner'], ['intermediate', 'Intermediate'], ['advanced', 'Advanced']])}</div>
+        <label class="toggle"><input type="checkbox" id="warmToggle" ${s.warmups ? 'checked' : ''}> <span>Add warm-up sets before heavy lifts</span></label>
+        <label class="toggle"><input type="checkbox" id="ssToggle" ${s.supersets ? 'checked' : ''}> <span>Pair exercises into supersets (saves time)</span></label>
         <div class="field row between"><label>Exercises</label>
           <div class="stepper"><button data-act="count" data-d="-1" aria-label="Fewer">−</button><output>${s.count}</output><button data-act="count" data-d="1" aria-label="More">+</button></div>
         </div>
@@ -259,17 +319,19 @@
     const units = state.settings.units;
     const last = lastLog(ex.id);
     const lastTxt = last ? 'Last: ' + last.map((x) => (ex.timed ? `${x.r}s` : `${x.w ? x.w + '×' : ''}${x.r}`)).join(' · ') : 'First time — pick a weight that feels right';
+    let wn = 0;
     const rows = entry.sets.map((st, j) => `
-      <div class="set ${st.done ? 'done' : ''}" data-i="${i}" data-j="${j}">
-        <span class="n">${j + 1}</span>
+      <div class="set ${st.done ? 'done' : ''} ${st.warm ? 'warm' : ''}" data-i="${i}" data-j="${j}">
+        <span class="n">${st.warm ? 'W' : ++wn}</span>
         ${ex.timed ? '<span class="w-na"></span><span></span>' : `<input class="w" inputmode="decimal" data-field="w" placeholder="${ex.loaded ? '0' : 'BW'}" value="${esc(st.w)}" aria-label="Weight"><span class="u">${units}</span>`}
         <input class="r" inputmode="numeric" data-field="r" placeholder="${esc(entry.target.reps)}" value="${esc(st.r)}" aria-label="${ex.timed ? 'Seconds' : 'Reps'}"><span class="u">${ex.timed ? 'sec' : 'reps'}</span>
         <button class="check" data-act="toggle-set" aria-pressed="${st.done}" aria-label="Mark set ${j + 1} done">✓</button>
       </div>`).join('');
     return `
-      <article class="ex" data-i="${i}">
+      <article class="ex ${entry.ss ? 'ss' : ''}" data-i="${i}">
         <header>
           <div class="hd-text"><h3>${esc(ex.name)}</h3>
+          ${entry.ss ? `<span class="badge ss-badge">Superset ${entry.ss} · ${entry.ssPos}/2</span>` : ''}
           <p class="meta">${MUSCLE_NAME[ex.muscle]} · ${esc(equipLabel(ex))} · <b>${entry.target.sets} × ${esc(entry.target.reps)}${ex.timed ? 's' : ''}</b></p></div>
           <div class="anim" data-ex="${ex.id}" data-act="form-guide" role="button" tabindex="0" aria-label="Open form guide for ${esc(ex.name)}"></div>
         </header>
@@ -348,6 +410,11 @@
   }
 
   function viewHistory() {
+    if (ui.histMode === 'body') return T.bodyView();
+    return T.histSwitch() + viewWorkoutHistory();
+  }
+
+  function viewWorkoutHistory() {
     const h = state.history;
     const weekAgo = Date.now() - 7 * 86400000;
     const wk = h.filter((w) => (w.endedAt || w.date) >= weekAgo);
@@ -373,7 +440,7 @@
         <summary><span><b>${esc(titleOf(w.muscles, w.regions))}</b>
           <small>${fmtDate(w.date)} · ${esc(w.profileName || '')}${dur ? ' · ' + dur : ''}${w.kcal ? ' · ~' + fmtNum(w.kcal) + ' kcal' : ''}</small></span>
           <span class="vol">${setsOf(w)} sets<small>${fmtNum(volumeOf(w))} ${state.settings.units}</small></span></summary>
-        ${w.exercises.map((e) => `<div class="hx"><b>${esc(e.name)}</b><span>${e.sets.map((s) => (e.timed ? `${s.r}s` : `${s.w ? s.w + '×' : ''}${s.r}`)).join(' · ')}</span></div>`).join('')}
+        ${w.exercises.map((e) => `<div class="hx"><b>${esc(e.name)}</b><span>${e.sets.filter((s) => !s.warm).map((s) => (e.timed ? `${s.r}s` : `${s.w ? s.w + '×' : ''}${s.r}`)).join(' · ')}</span></div>`).join('')}
         <button class="link danger" data-act="hist-del" data-id="${w.id}">Delete workout</button>
       </details>`; } }))
       .concat(cardio.map((c) => ({ t: c.date, html: () => `
@@ -566,6 +633,18 @@
     } catch (e) { /* ignore */ }
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   }
+  /* Typing a weight fills the same weight into this exercise's remaining sets (unless you edited them yourself). */
+  function propagateWeight(i, j) {
+    const sets = state.current.exercises[i].sets, src = sets[j];
+    if (src.warm || !String(src.w).trim()) return;
+    sets.forEach((s, k) => {
+      if (k <= j || s.warm || s.done || s.wm) return;
+      s.w = src.w;
+      const el = document.querySelector(`.ex[data-i="${i}"] .set[data-j="${k}"] input.w`);
+      if (el) el.value = src.w;
+    });
+  }
+
   function startRest(sec) {
     if (!state.settings.restTimer || !sec) return;
     ui.restTotal = sec;
@@ -610,7 +689,7 @@
     const exercises = w.exercises.map((en) => {
       const ex = EX_BY_ID[en.exId];
       return { exId: ex.id, name: ex.name, muscle: ex.muscle, timed: ex.timed,
-        sets: en.sets.filter((s) => s.done).map((s) => ({ w: num(s.w), r: num(s.r) })) };
+        sets: en.sets.filter((s) => s.done).map((s) => (s.warm ? { w: num(s.w), r: num(s.r), warm: true } : { w: num(s.w), r: num(s.r) })) };
     }).filter((e) => e.sets.length);
     if (!exercises.length) {
       if (confirm('No sets were logged. Discard this workout?')) { state.current = null; ui.restEnd = 0; save(); render(); }
@@ -694,7 +773,10 @@
         if (s.done) {
           if (!w.startedAt) w.startedAt = Date.now();
           if (!String(s.r).trim()) s.r = String(parseInt(w.exercises[i].target.reps, 10) || 10);
-          startRest(w.exercises[i].target.rest);
+          propagateWeight(i, j);
+          const en = w.exercises[i], partner = en.ss ? w.exercises.find((x, k) => k !== i && x.ss === en.ss) : null;
+          if (partner && en.ssPos === 1 && partner.sets[j] && !partner.sets[j].done) toast(`Superset — now ${EX_BY_ID[partner.exId].name}`);
+          else startRest(s.warm ? 40 : en.target.rest);
         }
         save();
         t.closest('.set').classList.toggle('done', s.done);
@@ -802,7 +884,7 @@
           state = defaults(); save(); ui.tab = 'train'; render();
         }
         break;
-      default: if (!C.act(act, t)) B.act(act, t); break;
+      default: if (!C.act(act, t) && !B.act(act, t) && !P.act(act, t)) T.act(act, t); break;
     }
   }
 
@@ -818,11 +900,12 @@
 
   document.addEventListener('input', (ev) => {
     const t = ev.target;
-    if (C.input(t) || B.input(t)) return;
+    if (C.input(t) || B.input(t) || P.input(t)) return;
     if (t.dataset && t.dataset.field && state.current) {
       const row = t.closest('.set');
       const s = state.current.exercises[+row.dataset.i].sets[+row.dataset.j];
       s[t.dataset.field] = t.value;
+      if (t.dataset.field === 'w') { s.wm = true; propagateWeight(+row.dataset.i, +row.dataset.j); }
       save();
     } else if (t.id === 'libSearch') {
       ui.libSearch = t.value; $('#libList').innerHTML = libItems();
@@ -837,8 +920,10 @@
 
   document.addEventListener('change', (ev) => {
     const t = ev.target;
-    if (C.change(t)) return;
+    if (C.change(t) || T.change(t)) return;
     if (t.id === 'libMine') { ui.libMine = t.checked; $('#libList').innerHTML = libItems(); }
+    else if (t.id === 'warmToggle') { state.settings.warmups = t.checked; save(); }
+    else if (t.id === 'ssToggle') { state.settings.supersets = t.checked; save(); }
     else if (t.id === 'restToggle') { state.settings.restTimer = t.checked; save(); if (!t.checked) { ui.restEnd = 0; tick(); } }
     else if (t.dataset && t.dataset.equip && ui.draft) {
       const eq = ui.draft.equipment, k = eq.indexOf(t.dataset.equip);
