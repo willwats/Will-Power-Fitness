@@ -62,6 +62,8 @@
     [/^Dead Bug/, 'dead_bug'],
     [/^Bird Dog/, 'bird_dog'],
     [/^Bicycle/, 'bicycle'],
+    [/^Reverse Crunch|^Bench Leg Raise/, 'leg_raise_lying'],
+    [/Scissor/, 'flutter'],
     [/Crunch$/, (ex) => (/^Cable/.test(ex.name) ? 'cable_crunch' : 'crunch')],
     [/^Lying Leg Raise/, 'leg_raise_lying'],
     [/^Flutter/, 'flutter'],

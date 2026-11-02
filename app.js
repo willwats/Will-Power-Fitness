@@ -50,6 +50,7 @@
       activeProfile: gym.id,
       settings: { units: 'lb', goal: 'hypertrophy', level: 'intermediate', count: 6, restTimer: true, weight: 0 },
       selected: [],
+      regions: {},
       history: [],
       current: null,
       cardio: [],
@@ -83,6 +84,11 @@
     state: () => state, save: () => save(), render: () => render(), ui, toast: (m) => toast(m),
     openSheet: (t, h) => openSheet(t, h), closeSheet: () => closeSheet(), esc, num,
   });
+
+  const titleOf = (muscles, regions) => muscles.map((m) => {
+    const r = regions && regions[m] && REGIONS[m] && REGIONS[m].find((x) => x[0] === regions[m]);
+    return MUSCLE_NAME[m] + (r ? ` (${r[1]})` : '');
+  }).join(' + ');
 
   const profile = () => state.profiles.find((p) => p.id === state.activeProfile) || state.profiles[0];
   const workoutProfile = () => (state.current && state.profiles.find((p) => p.id === state.current.profileId)) || profile();
@@ -164,7 +170,9 @@
       const picked = [];
       const usedEquip = new Set();
       for (let k = 0; k < alloc[m]; k++) {
-        const cands = pool[m].filter((e) => !picked.includes(e));
+        let cands = pool[m].filter((e) => !picked.includes(e));
+        const reg = state.regions[m];
+        if (reg) { const pref = cands.filter((e) => (e.regions || []).includes(reg)); if (pref.length) cands = pref; }
         if (!cands.length) break;
         let best = null, bs = -Infinity;
         for (const e of cands) {
@@ -189,6 +197,7 @@
     state.current = {
       id: uid(), createdAt: Date.now(), startedAt: null,
       profileId: prof.id, profileName: prof.name, muscles, goal,
+      regions: Object.fromEntries(muscles.filter((m) => state.regions[m]).map((m) => [m, state.regions[m]])),
       exercises: chosen.map((e) => makeEntry(e, goal)),
     };
     save();
@@ -222,6 +231,14 @@
     const presets = MUSCLE_PRESETS.map(([id, label]) => `<button class="pill" data-act="preset" data-p="${id}">${label}</button>`).join('')
       + `<button class="pill ghost" data-act="preset" data-p="clear">Clear</button>`;
 
+    const regionRows = selected.filter((m) => REGIONS[m]).map((m) => {
+      const cur = state.regions[m] || '';
+      const cnt = (r) => EXERCISES.filter((e) => e.muscle === m && isAvailable(e, owned) && e.regions.includes(r)).length;
+      return `<div class="field regions"><label>${MUSCLE_NAME[m]} focus</label><div class="pills">
+        <button class="pill ${cur ? '' : 'on'}" data-act="set-region" data-m="${m}" data-r="">All</button>
+        ${REGIONS[m].map(([id, label]) => `<button class="pill ${cur === id ? 'on' : ''}" data-act="set-region" data-m="${m}" data-r="${id}" ${cnt(id) ? '' : 'disabled'}>${label}</button>`).join('')}</div></div>`;
+    }).join('');
+
     const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button data-act="set-${key}" data-v="${v}" class="${s[key] === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 
     return `
@@ -233,6 +250,7 @@
         </div>
         <div class="pills">${presets}</div>
         <div class="chips">${chips}</div>
+        ${regionRows}
       </section>
       <section class="card">
         <div class="field"><label>Goal</label>${seg('goal', Object.entries(GOALS).map(([k, g]) => [k, g.label]))}</div>
@@ -241,7 +259,7 @@
           <div class="stepper"><button data-act="count" data-d="-1" aria-label="Fewer">−</button><output>${s.count}</output><button data-act="count" data-d="1" aria-label="More">+</button></div>
         </div>
       </section>
-      <button class="primary big" data-act="generate" ${selected.length ? '' : 'disabled'}>${selected.length ? `Build ${selected.map((m) => MUSCLE_NAME[m]).join(' + ')} workout` : 'Pick a body part to start'}</button>`;
+      <button class="primary big" data-act="generate" ${selected.length ? '' : 'disabled'}>${selected.length ? `Build ${titleOf(selected, state.regions)} workout` : 'Pick a body part to start'}</button>`;
   }
 
   function entryCard(entry, i) {
@@ -288,12 +306,13 @@
     return `
       <section class="card summary">
         <div class="row between">
-          <div><h2>${w.muscles.map((m) => MUSCLE_NAME[m]).join(' + ')}</h2>
+          <div><h2>${esc(titleOf(w.muscles, w.regions))}</h2>
           <p class="muted">${esc(w.profileName)} · ${GOALS[w.goal]?.label || ''}</p></div>
-          <div class="clock"><span id="elapsed">${started ? fmtClock((Date.now() - w.startedAt) / 1000) : '0:00'}</span><small>${started ? 'elapsed' : 'starts on first set'}</small></div>
+          <div class="clock"><span id="elapsed">${started ? fmtClock((Date.now() - w.startedAt) / 1000) : '0:00'}</span><small>${started ? 'elapsed' : 'not started'}</small></div>
         </div>
         <div class="bar"><i id="barFill" style="width:${total ? (done / total) * 100 : 0}%"></i></div>
         <p class="muted" id="progressTxt">${done} of ${total} sets done</p>
+        ${started ? '' : '<button class="primary big" data-act="start-workout">▶ Start workout</button>'}
         <div class="row gap">
           ${done === 0 ? '<button class="pill" data-act="regen">↻ Regenerate</button>' : ''}
           <button class="pill ghost" data-act="discard">Discard</button>
@@ -352,7 +371,7 @@
       const dur = w.endedAt && w.date ? fmtClock((w.endedAt - w.date) / 1000) : '';
       return `
       <details class="hist">
-        <summary><span><b>${w.muscles.map((m) => MUSCLE_NAME[m]).join(' + ')}</b>
+        <summary><span><b>${esc(titleOf(w.muscles, w.regions))}</b>
           <small>${fmtDate(w.date)} · ${esc(w.profileName || '')}${dur ? ' · ' + dur : ''}${w.kcal ? ' · ~' + fmtNum(w.kcal) + ' kcal' : ''}</small></span>
           <span class="vol">${setsOf(w)} sets<small>${fmtNum(volumeOf(w))} ${state.settings.units}</small></span></summary>
         ${w.exercises.map((e) => `<div class="hx"><b>${esc(e.name)}</b><span>${e.sets.map((s) => (e.timed ? `${s.r}s` : `${s.w ? s.w + '×' : ''}${s.r}`)).join(' · ')}</span></div>`).join('')}
@@ -576,7 +595,7 @@
     const startedAt = w.startedAt || w.createdAt, endedAt = Date.now();
     const durSec = Math.min(Math.max((endedAt - startedAt) / 1000, 300), 3 * 3600);
     const kcal = CARDIO.kcalFor(CARDIO.metFor('strength'), CARDIO.toKg(state.settings.weight || (state.settings.units === 'kg' ? 75 : 165), state.settings.units), durSec);
-    const rec = { id: w.id, date: startedAt, endedAt, kcal, profileId: w.profileId, profileName: w.profileName, muscles: w.muscles, goal: w.goal, exercises };
+    const rec = { id: w.id, date: startedAt, endedAt, kcal, profileId: w.profileId, profileName: w.profileName, muscles: w.muscles, regions: w.regions || {}, goal: w.goal, exercises };
     state.history.unshift(rec);
     state.current = null;
     ui.restEnd = 0;
@@ -618,6 +637,7 @@
         if (k >= 0) state.selected.splice(k, 1); else state.selected.push(d.m);
         save(); render(); break;
       }
+      case 'set-region': if (d.r) state.regions[d.m] = d.r; else delete state.regions[d.m]; save(); render(); break;
       case 'preset': {
         if (d.p === 'clear') state.selected = [];
         else state.selected = MUSCLE_PRESETS.find((p) => p[0] === d.p)[2].filter((m) => poolCount(m, profile().equipment) > 0);
@@ -634,6 +654,7 @@
       case 'discard':
         if (confirm('Discard this workout?')) { state.current = null; ui.restEnd = 0; save(); render(); }
         break;
+      case 'start-workout': if (w && !w.startedAt) { w.startedAt = Date.now(); save(); render(); } break;
       case 'finish': finishWorkout(); break;
 
       /* sets & exercises */

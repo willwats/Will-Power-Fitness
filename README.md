@@ -7,6 +7,8 @@ No account, no backend, no build step — it's a static web app that runs entire
 ## Features
 
 - **Target any body part** — chest, back, shoulders, biceps, triceps, forearms, core, quads, hamstrings, glutes, calves. One-tap presets for Full body, Push, Pull, Legs, Upper and Arms.
+- **Focus areas** — after picking a body part, narrow it: Abs → upper / middle / lower / obliques / deep core, Chest → upper / mid / lower, Shoulders → front / side / rear, Back → lats / upper back / lower back. The workout then uses exercises for that region.
+- **Start button** — hit ▶ Start workout when you begin; the clock runs from then (logging a set also starts it).
 - **Equipment profiles** — create as many as you want (e.g. *Gym*, *Home – Upstairs*). Each profile is a checklist of gear; workouts only ever use exercises you can do with the active profile.
 - **169 exercises** with form cues, from bodyweight to full gym, tagged by muscle, equipment, difficulty and compound/isolation.
 - **Workout generator** — splits the exercise budget across your target muscles, leads with compound lifts, finishes with isolation/core, and avoids repeating what you did in your last few workouts. Choose goal (Strength / Muscle / Endurance), experience level and number of exercises.

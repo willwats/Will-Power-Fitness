@@ -203,6 +203,9 @@ const EXERCISES = [
   E('Stability Ball Crunch', 'core', ['stability_ball'], 1, 'Ball under lower back; crunch with control.'),
   E('Suitcase Carry', 'core', ['dumbbell|kettlebell'], 1, 'Carry one heavy weight; don’t lean to either side.', ['forearms']),
   E('TRX Fallout', 'core', ['suspension'], 3, 'Arms extend overhead from a plank; keep hips locked.'),
+  E('Reverse Crunch', 'core', [], 1, 'Curl knees toward your chest and lift your hips off the floor; no swinging.'),
+  E('Lying Scissor Kicks', 'core', [], 1, 'Legs low and straight, cross them over each other; lower back stays down.'),
+  E('Bench Leg Raise', 'core', ['bench'], 2, 'Lie on a bench gripping behind your head; lower your legs slowly, then lift.'),
 
   // ───────────── QUADS ─────────────
   E('Bodyweight Squat', 'quads', [], 1, 'Chest up, knees track over toes, hips below parallel.', ['glutes']),
@@ -266,6 +269,48 @@ const EXERCISES = [
   E('Leg Press Calf Raise', 'calves', ['leg_press'], 1, 'Press with your toes only; keep knees nearly straight.'),
 ];
 
+/* ── body-part regions (e.g. lower abs vs upper abs). Tagged below as ex.regions. ── */
+const REGIONS = {
+  core: [['upper', 'Upper abs'], ['middle', 'Middle abs'], ['lower', 'Lower abs'], ['obliques', 'Obliques'], ['deep', 'Deep core']],
+  chest: [['upper', 'Upper chest'], ['middle', 'Mid chest'], ['lower', 'Lower chest']],
+  shoulders: [['front', 'Front delts'], ['side', 'Side delts'], ['rear', 'Rear delts']],
+  back: [['lats', 'Lats'], ['upper', 'Upper / mid back'], ['lower', 'Lower back']],
+};
+const CORE_REGIONS = {
+  'Plank': ['middle', 'deep'], 'Side Plank': ['obliques', 'deep'], 'Dead Bug': ['lower', 'deep'], 'Bird Dog': ['deep'],
+  'Crunch': ['upper'], 'Bicycle Crunch': ['upper', 'obliques'], 'Lying Leg Raise': ['lower'], 'Flutter Kicks': ['lower'],
+  'V-Up': ['upper', 'lower'], 'Hollow Body Hold': ['middle', 'lower'], 'Mountain Climber': ['lower', 'middle'],
+  'Russian Twist': ['obliques', 'middle'], 'Weighted Russian Twist': ['obliques', 'middle'], 'Decline Sit-Up': ['upper', 'middle'],
+  'Hanging Knee Raise': ['lower'], 'Hanging Leg Raise': ['lower'], 'Ab Wheel Rollout': ['middle', 'upper', 'deep'],
+  'Cable Crunch': ['upper', 'middle'], 'Pallof Press': ['obliques', 'deep'], 'Cable Woodchop': ['obliques'], 'Band Woodchop': ['obliques'],
+  'Medicine Ball Slam': ['upper', 'middle'], 'Stability Ball Crunch': ['upper'], 'Suitcase Carry': ['obliques', 'deep'],
+  'TRX Fallout': ['middle', 'deep'], 'Reverse Crunch': ['lower'], 'Lying Scissor Kicks': ['lower'], 'Bench Leg Raise': ['lower'],
+};
+function regionsFor(ex) {
+  const n = ex.name;
+  if (ex.muscle === 'core') return CORE_REGIONS[n] || ['middle'];
+  if (ex.muscle === 'chest') {
+    if (/Incline|Low-to-High/.test(n)) return ['upper'];
+    if (/Decline|Dip/.test(n)) return ['lower'];
+    if (/Crossover/.test(n)) return ['middle', 'lower'];
+    return ['middle'];
+  }
+  if (ex.muscle === 'shoulders') {
+    if (/Arnold/.test(n)) return ['front', 'side'];
+    if (/Lateral|Upright/.test(n)) return ['side'];
+    if (/Rear|Reverse|Face Pull/.test(n)) return ['rear'];
+    return ['front'];
+  }
+  if (ex.muscle === 'back') {
+    if (/Pull-Up|Chin-Up|Pulldown|Straight-Arm/.test(n)) return ['lats'];
+    if (/Deadlift|Superman/.test(n)) return ['lower', 'upper'];
+    if (/Shrug|Pull-Apart|Y-T-W/.test(n)) return ['upper'];
+    return ['upper', 'lats'];
+  }
+  return [];
+}
+EXERCISES.forEach((e) => { e.regions = regionsFor(e); });
+
 const EX_BY_ID = Object.fromEntries(EXERCISES.map((e) => [e.id, e]));
 const MUSCLE_NAME = Object.fromEntries(MUSCLES.map((m) => [m.id, m.name]));
 const EQUIP_NAME = {};
@@ -277,5 +322,5 @@ function isAvailable(ex, owned) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { MUSCLES, EQUIPMENT_GROUPS, EXERCISES, EX_BY_ID, MUSCLE_NAME, EQUIP_NAME, ALL_EQUIPMENT, isAvailable };
+  module.exports = { REGIONS, MUSCLES, EQUIPMENT_GROUPS, EXERCISES, EX_BY_ID, MUSCLE_NAME, EQUIP_NAME, ALL_EQUIPMENT, isAvailable };
 }
