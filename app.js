@@ -121,17 +121,9 @@
   }
   function makeEntry(ex, goal) {
     const target = prescription(ex, goal);
-    const last = lastLog(ex.id);
-    const lowRep = parseInt(target.reps, 10) || 10;
-    const sets = Array.from({ length: target.sets }, (_, j) => {
-      const prev = last ? (last[j] || last[last.length - 1]) : null;
-      return {
-        w: !ex.timed && prev && prev.w ? String(prev.w) : '',
-        r: String(prev && prev.r ? prev.r : lowRep),
-        done: false,
-      };
-    });
-    return { exId: ex.id, target, sets };
+    const sg = PROG.suggest(ex, target, state.history, state.settings.units, EX_BY_ID);
+    const sets = sg.sets.map((s) => ({ w: ex.timed ? '' : s.w, r: s.r, done: false }));
+    return { exId: ex.id, target, sets, note: sg.note, nkind: sg.kind };
   }
 
   function generate() {
@@ -282,6 +274,7 @@
           <div class="anim" data-ex="${ex.id}"></div>
         </header>
         <p class="cue">${esc(ex.cue)}</p>
+        ${entry.note ? `<p class="sugg ${entry.nkind}"><span aria-hidden="true">${entry.nkind === 'progress' || entry.nkind === 'reps' ? '▲' : entry.nkind === 'lighter' ? '▼' : entry.nkind === 'estimate' ? '≈' : '='}</span> ${esc(entry.note)}</p>` : ''}
         <p class="last">${esc(lastTxt)}</p>
         <div class="sets">${rows}</div>
         <footer>
@@ -365,6 +358,12 @@
         <div><b>${fmtNum(wk.reduce((t, w) => t + volumeOf(w), 0))}</b><small>${state.settings.units}<br>lifted</small></div>
         <div><b>${h.length}</b><small>all-time<br>workouts</small></div>
       </section>`;
+    const prog = PROG.summaries(h, EX_BY_ID, 6);
+    const progCard = prog.length ? `
+      <section class="card"><h2>Strength progress</h2>
+        ${prog.map((p) => `<div class="prog"><div><b>${esc(p.name)}</b><small>${p.latest.w} ${state.settings.units} × ${p.latest.r} lately · best ${p.best.w} × ${p.best.r} · ${p.sessions} session${p.sessions === 1 ? '' : 's'}</small></div>
+          <span class="chg ${p.change === null ? '' : p.change >= 0 ? 'up' : 'down'}">${p.change === null ? 'new' : (p.change >= 0 ? '▲ ' : '▼ ') + Math.abs(p.change).toFixed(0) + '%'}</span></div>`).join('')}
+        <p class="muted small">Change is your estimated one-rep max now versus your first logged session.</p></section>` : '';
     const cardio = state.cardio || [];
     if (!h.length && !cardio.length) return stats + '<p class="empty">No workouts yet. Build one on the Train tab, or start a walk on the Cardio tab, and it will show up here.</p>';
     const items = h.map((w) => ({ t: w.date, html: () => {
@@ -384,7 +383,7 @@
         <span class="vol">${fmtNum(c.kcal || 0)}<small>kcal</small></span>
       </div>` })))
       .sort((a, b) => b.t - a.t);
-    return stats + items.map((x) => x.html()).join('');
+    return stats + progCard + items.map((x) => x.html()).join('');
   }
 
   function viewGear() {
@@ -518,7 +517,8 @@
         <div><b>${setsOf(rec)}</b><small>sets</small></div>
         <div><b>${fmtNum(volumeOf(rec))}</b><small>${state.settings.units} lifted</small></div>
       </div>
-      <p class="muted">Saved to your history. Muscle recovery dots on the Train tab are updated.</p>
+      ${rec.prs && rec.prs.length ? `<div class="card prs"><h3>🏆 New personal ${rec.prs.length > 1 ? 'records' : 'record'}</h3>${rec.prs.map((p) => `<p><b>${esc(p.name)}</b> — ${p.w} ${state.settings.units} × ${p.r}</p>`).join('')}</div>` : ''}
+      <p class="muted">Saved to your history. Next time, the app will suggest what to lift based on this.</p>
       <button class="primary big" data-act="close-sheet">Done</button>`);
   }
 
@@ -596,6 +596,7 @@
     const durSec = Math.min(Math.max((endedAt - startedAt) / 1000, 300), 3 * 3600);
     const kcal = CARDIO.kcalFor(CARDIO.metFor('strength'), CARDIO.toKg(state.settings.weight || (state.settings.units === 'kg' ? 75 : 165), state.settings.units), durSec);
     const rec = { id: w.id, date: startedAt, endedAt, kcal, profileId: w.profileId, profileName: w.profileName, muscles: w.muscles, regions: w.regions || {}, goal: w.goal, exercises };
+    rec.prs = PROG.newPRs(state.history, rec, EX_BY_ID);
     state.history.unshift(rec);
     state.current = null;
     ui.restEnd = 0;
