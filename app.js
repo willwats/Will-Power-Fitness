@@ -315,7 +315,7 @@
           <div class="stepper"><button data-act="count" data-d="-1" aria-label="Fewer">−</button><output>${s.count}</output><button data-act="count" data-d="1" aria-label="More">+</button></div>
         </div>
       </section>
-      <button class="primary big" data-act="generate" ${selected.length ? '' : 'disabled'}>${selected.length ? `Build ${titleOf(selected, state.regions)} workout` : 'Pick a body part to start'}</button>`;
+      <button class="primary big" data-act="generate" ${selected.length ? '' : 'disabled'}>${selected.length ? `Build ${titleOf(selected, state.regions)} workout${SPORT.get(state.settings.sport) ? ' for ' + esc(SPORT.get(state.settings.sport).name) : ''}` : 'Pick a body part to start'}</button>`;
   }
 
   function sportCard() {
@@ -326,8 +326,9 @@
       const di = SPORT.nextDay(sp, state.history), day = sp.days[di];
       more = `<p class="muted">${esc(sp.blurb)}</p>
         <p class="muted small">Sets and reps follow ${esc(GOALS[sp.goal].label.toLowerCase())} training for this sport. Exercises that help ${esc(sp.name)} are chosen first, and each one says why.</p>
-        <button class="primary" data-act="sport-build">Build next ${esc(sp.name)} session: ${esc(day[0])}</button>
-        <p class="muted small">Sessions rotate: ${sp.days.map((d, k) => (k === di ? `<b>${esc(d[0])}</b>` : esc(d[0]))).join(' → ')}. Or pick muscles above and your sport still shapes the exercises.</p>`;
+        <p class="muted small"><b>Pick the muscles you want above</b> and the workout stays on them, using the lifts that help ${esc(sp.name)}.</p>
+        <button class="pill" data-act="sport-build">Or let ${esc(sp.name)} pick today’s session: ${esc(day[0])}</button>
+        <p class="muted small">Session rotation: ${sp.days.map((d, k) => (k === di ? `<b>${esc(d[0])}</b>` : esc(d[0]))).join(' → ')}.</p>`;
     }
     return `<section class="card sport"><h2>Train for a sport</h2><div class="pills" id="sportPills">${pills}</div>${more}</section>`;
   }
