@@ -48,7 +48,7 @@
       v: 1,
       profiles: [gym, home],
       activeProfile: gym.id,
-      settings: { units: 'lb', goal: 'hypertrophy', level: 'intermediate', count: 6, restTimer: true, weight: 0, warmups: true, supersets: false },
+      settings: { units: 'lb', goal: 'hypertrophy', level: 'intermediate', count: 6, restTimer: true, weight: 0, warmups: true, supersets: false, sport: '' },
       selected: [],
       regions: {},
       history: [],
@@ -175,9 +175,10 @@
     else toast('No exercises available for that with this equipment profile');
   }
 
-  function generate() {
+  function generate(sportDay) {
     const prof = profile();
-    const goal = state.settings.goal;
+    const sport = SPORT.get(state.settings.sport);
+    const goal = sport ? sport.goal : state.settings.goal;
     const level = state.settings.level;
     const avail = EXERCISES.filter((e) => isAvailable(e, prof.equipment) && (level !== 'beginner' || e.level <= 2));
     const muscles = state.selected.filter((m) => avail.some((e) => e.muscle === m));
@@ -195,7 +196,7 @@
       let best = null, bs = -1;
       for (const m of muscles) {
         if (alloc[m] >= pool[m].length) continue;
-        const s = (WEIGHT[m] || 1) / (alloc[m] + 1);
+        const s = ((WEIGHT[m] || 1) * SPORT.muscleWeight(sport, m)) / (alloc[m] + 1);
         if (s > bs) { bs = s; best = m; }
       }
       if (!best) break;
@@ -217,7 +218,7 @@
         if (!cands.length) break;
         let best = null, bs = -Infinity;
         for (const e of cands) {
-          let s = Math.random() - penalty(e);
+          let s = Math.random() - penalty(e) + SPORT.pickBonus(sport, e);
           if (k === 0 && e.compound) s += 1.2;
           if (k > 0 && !e.compound) s += 0.6;
           if (usedEquip.has(e.equip.join('+') || 'bw')) s -= 0.7;
@@ -239,6 +240,7 @@
     if (state.settings.supersets && chosen.length > 1) ({ out: order, ssOf } = pairSupersets(chosen));
     const entries = order.map((e) => {
       const en = makeEntry(e, goal), ss = ssOf.get(e);
+      const wy = SPORT.why(sport, e); if (wy) en.why = wy;
       if (ss) { en.ss = ss[0]; en.ssPos = ss[1]; }
       return en;
     });
@@ -250,6 +252,7 @@
       regions: Object.fromEntries(muscles.filter((m) => state.regions[m]).map((m) => [m, state.regions[m]])),
       exercises: entries,
     };
+    if (sport) state.current.sport = typeof sportDay === 'number' ? { id: sport.id, day: sportDay } : { id: sport.id };
     save();
     return true;
   }
@@ -302,6 +305,7 @@
         <div class="chips">${chips}</div>
         ${regionRows}
       </section>
+      ${sportCard()}
       <section class="card">
         <div class="field"><label>Goal</label>${seg('goal', Object.entries(GOALS).map(([k, g]) => [k, g.label]))}</div>
         <div class="field"><label>Experience</label>${seg('level', [['beginner', 'Beginner'], ['intermediate', 'Intermediate'], ['advanced', 'Advanced']])}</div>
@@ -312,6 +316,20 @@
         </div>
       </section>
       <button class="primary big" data-act="generate" ${selected.length ? '' : 'disabled'}>${selected.length ? `Build ${titleOf(selected, state.regions)} workout` : 'Pick a body part to start'}</button>`;
+  }
+
+  function sportCard() {
+    const sp = SPORT.get(state.settings.sport);
+    const pills = `<button class="pill ${sp ? '' : 'on'}" data-act="set-sport" data-v="">None</button>` + SPORT.SPORTS.map((x) => `<button class="pill ${sp && sp.id === x.id ? 'on' : ''}" data-act="set-sport" data-v="${x.id}" aria-pressed="${!!sp && sp.id === x.id}">${x.icon} ${x.name}</button>`).join('');
+    let more = '';
+    if (sp) {
+      const di = SPORT.nextDay(sp, state.history), day = sp.days[di];
+      more = `<p class="muted">${esc(sp.blurb)}</p>
+        <p class="muted small">Sets and reps follow ${esc(GOALS[sp.goal].label.toLowerCase())} training for this sport. Exercises that help ${esc(sp.name)} are chosen first, and each one says why.</p>
+        <button class="primary" data-act="sport-build">Build next ${esc(sp.name)} session: ${esc(day[0])}</button>
+        <p class="muted small">Sessions rotate: ${sp.days.map((d, k) => (k === di ? `<b>${esc(d[0])}</b>` : esc(d[0]))).join(' → ')}. Or pick muscles above and your sport still shapes the exercises.</p>`;
+    }
+    return `<section class="card sport"><h2>Train for a sport</h2><div class="pills" id="sportPills">${pills}</div>${more}</section>`;
   }
 
   function entryCard(entry, i) {
@@ -336,6 +354,7 @@
           <div class="anim" data-ex="${ex.id}" data-act="form-guide" role="button" tabindex="0" aria-label="Open form guide for ${esc(ex.name)}"></div>
         </header>
         <p class="cue">${esc(ex.cue)}</p>
+        ${entry.why ? `<p class="why">${(SPORT.get(state.current && state.current.sport && state.current.sport.id) || {}).icon || '★'} ${esc(entry.why)}</p>` : ''}
         ${entry.note ? `<p class="sugg ${entry.nkind}"><span aria-hidden="true">${entry.nkind === 'progress' || entry.nkind === 'reps' ? '▲' : entry.nkind === 'lighter' ? '▼' : entry.nkind === 'estimate' ? '≈' : '='}</span> ${esc(entry.note)}</p>` : ''}
         <p class="last">${esc(lastTxt)}</p>
         <div class="sets">${rows}</div>
@@ -362,7 +381,7 @@
       <section class="card summary">
         <div class="row between">
           <div><h2>${esc(titleOf(w.muscles, w.regions))}</h2>
-          <p class="muted">${esc(w.profileName)} · ${GOALS[w.goal]?.label || ''}</p></div>
+          <p class="muted">${esc(w.profileName)} · ${GOALS[w.goal]?.label || ''}${w.sport && SPORT.get(w.sport.id) ? ` · ${SPORT.get(w.sport.id).icon} ${esc(SPORT.get(w.sport.id).name)}` : ''}</p></div>
           <div class="clock"><span id="elapsed">${started ? fmtClock((Date.now() - w.startedAt) / 1000) : '0:00'}</span><small>${started ? 'elapsed' : 'not started'}</small></div>
         </div>
         <div class="bar"><i id="barFill" style="width:${total ? (done / total) * 100 : 0}%"></i></div>
@@ -699,6 +718,7 @@
     const durSec = Math.min(Math.max((endedAt - startedAt) / 1000, 300), 3 * 3600);
     const kcal = CARDIO.kcalFor(CARDIO.metFor('strength'), CARDIO.toKg(state.settings.weight || (state.settings.units === 'kg' ? 75 : 165), state.settings.units), durSec);
     const rec = { id: w.id, date: startedAt, endedAt, kcal, profileId: w.profileId, profileName: w.profileName, muscles: w.muscles, regions: w.regions || {}, goal: w.goal, exercises };
+    if (w.sport) rec.sport = w.sport;
     rec.prs = PROG.newPRs(state.history, rec, EX_BY_ID);
     state.history.unshift(rec);
     state.current = null;
@@ -754,7 +774,15 @@
       case 'generate':
         if (generate()) { render(); window.scrollTo(0, 0); } else toast('No exercises match that profile');
         break;
-      case 'regen': generate(); render(); break;
+      case 'regen': generate(state.current && state.current.sport ? state.current.sport.day : undefined); render(); break;
+      case 'set-sport': state.settings.sport = d.v || ''; save(); render(); break;
+      case 'sport-build': {
+        const sp = SPORT.get(state.settings.sport); if (!sp) break;
+        const di = SPORT.nextDay(sp, state.history), prof = profile();
+        state.selected = sp.days[di][1].filter((m) => poolCount(m, prof.equipment) > 0);
+        if (state.selected.length && generate(di)) { render(); window.scrollTo(0, 0); } else toast('No exercises available for that with this equipment profile');
+        break;
+      }
       case 'discard':
         if (confirm('Discard this workout?')) { state.current = null; ui.restEnd = 0; save(); render(); }
         break;

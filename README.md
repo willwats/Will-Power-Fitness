@@ -103,3 +103,6 @@ Profiles, workouts and settings live in your browser's `localStorage` on the dev
 - **History → Body**: weight log with trend chart and ideal-weight line, measurements, and progress photos (stored only on the device, not in backups).
 - **Water & protein** tracker on Train, with targets from your weight and training focus.
 - Files added: `plan.js`, `plan-ui.js`, `track.js`, `track-ui.js`. `native/` holds an unverified iPhone (Capacitor) scaffold.
+
+## Sport training
+Pick a sport on the Train tab (basketball, football, soccer, baseball/softball, golf, tennis/pickleball, hockey, boxing/MMA/wrestling, volleyball, running, swimming, cycling). The builder then favors the muscles and lifts that help that sport, uses a matching sets/reps style, and shows a one-line reason on each sport-specific exercise. **Build next session** rotates through that sport's session types (e.g. Rotation & core → Legs & hips → Upper & posture). Data lives in `sport.js`.
