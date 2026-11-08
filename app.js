@@ -61,6 +61,7 @@
       weights: [],
       measures: [],
       intake: {},
+      custom: [],
     };
   }
   function load() {
@@ -74,10 +75,12 @@
     return defaults();
   }
   let state = load();
+  if (!Array.isArray(state.custom)) state.custom = [];
+  CUSTOM.sync(state.custom, EXERCISES, EX_BY_ID);
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage full / blocked */ } };
 
   // UI-only state (not persisted)
-  const ui = { tab: 'train', libMuscle: 'all', libSearch: '', libMine: true, restEnd: 0, restTotal: 0, draft: null, addMuscle: 'workout', addSearch: '' };
+  const ui = { tab: 'train', libMuscle: 'all', libSearch: '', libMine: true, restEnd: 0, restTotal: 0, draft: null, cdraft: null, addMuscle: 'workout', addSearch: '' };
 
   const C = WPC({
     state: () => state, save: () => save(), render: () => render(), ui, toast: (m) => toast(m),
@@ -404,15 +407,15 @@
     const list = EXERCISES.filter((e) =>
       (ui.libMuscle === 'all' || e.muscle === ui.libMuscle) &&
       (!ui.libMine || isAvailable(e, owned)) &&
-      (!q || e.name.toLowerCase().includes(q)));
-    if (!list.length) return '<p class="empty">No exercises match. Try turning off “My equipment only” or edit your profile’s gear.</p>';
+      (!q || CUSTOM.matches(`${e.name} ${MUSCLE_NAME[e.muscle]}`, q)));
+    if (!list.length) return `<p class="empty">No exercises match. Try turning off “My equipment only”, or <button class="link" data-act="cx-new" data-name="${esc(ui.libSearch.trim())}">create “${esc(ui.libSearch.trim() || 'your own')}”</button>.</p>`;
     return list.map((e) => `
       <details class="lib">
         <summary><span><b>${esc(e.name)}</b><small>${MUSCLE_NAME[e.muscle]} · ${esc(equipLabel(e))}</small></span>${isAvailable(e, owned) ? '' : '<em class="needgear">needs gear</em>'}</summary>
         <div class="anim" data-ex="${e.id}" data-act="form-guide" role="button" tabindex="0" aria-label="Open form guide for ${esc(e.name)}"></div>
         <p>${esc(e.cue)}</p>
-        <p class="tags"><span>${LEVELS[e.level]}</span>${e.compound ? '<span>Compound</span>' : '<span>Isolation</span>'}${e.secondary.map((s) => `<span>+ ${MUSCLE_NAME[s]}</span>`).join('')}</p>
-        ${state.current && isAvailable(e, owned) ? `<button class="pill" data-act="lib-add" data-id="${e.id}">Add to current workout</button>` : ''}
+        <p class="tags">${e.custom ? '<span class="cust">Custom</span>' : ''}<span>${LEVELS[e.level]}</span>${e.compound ? '<span>Compound</span>' : '<span>Isolation</span>'}${e.secondary.map((s) => `<span>+ ${MUSCLE_NAME[s]}</span>`).join('')}</p>
+        <div class="row gap wrap">${state.current && isAvailable(e, owned) ? `<button class="pill" data-act="lib-add" data-id="${e.id}">Add to current workout</button>` : ''}${e.custom ? `<button class="pill" data-act="cx-edit" data-id="${e.id}">Edit</button><button class="pill danger" data-act="cx-del" data-id="${e.id}">Delete</button>` : ''}</div>
       </details>`).join('');
   }
 
@@ -424,6 +427,7 @@
         <h2>Exercise library</h2>
         <input type="search" id="libSearch" class="search" placeholder="Search ${EXERCISES.length} exercises" value="${esc(ui.libSearch)}">
         <div class="pills scroll">${chips}</div>
+        <button class="pill wide" data-act="cx-new">＋ Create your own exercise</button>
         <label class="toggle"><input type="checkbox" id="libMine" ${ui.libMine ? 'checked' : ''}> <span>Only exercises I can do with <b>${esc(profile().name)}</b></span></label>
       </section>
       <div id="libList">${libItems()}</div>`;
@@ -534,7 +538,7 @@
   function closeSheet() {
     $('#sheet').hidden = true;
     document.body.classList.remove('lock');
-    ui.draft = null;
+    ui.draft = null; ui.cdraft = null;
   }
 
   function sheetProfiles() {
@@ -607,6 +611,53 @@
     openSheet(`Swap ${cur.name}`, (alts.length ? '<button class="pill on wide" data-act="swap-random">🎲 Surprise me</button>' : '') + entryPickerList(alts, 'pick-swap'));
   }
 
+  /* ── custom exercises ── */
+  function cxOpen(d, edit) {
+    ui.cdraft = Object.assign({ id: '', name: '', muscle: '', equip: [], level: 2, cue: '', secondary: [], timed: false, loaded: null, regions: [], like: 'auto', add: false }, d);
+    ui.cdraft.edit = !!edit;
+    sheetCustom();
+  }
+  function sheetCustom() {
+    const d = ui.cdraft, regs = REGIONS[d.muscle] || [];
+    const likeOpts = EXERCISES.filter((e) => !e.custom && e.muscle === d.muscle).map((e) => `<option value="${esc(e.name)}" ${d.like === e.name ? 'selected' : ''}>${esc(e.name)}</option>`).join('');
+    const eq = EQUIPMENT_GROUPS.map((g) => `<p class="muted small">${esc(g.name)}</p><div class="pills">${g.items.map((i) => `<button class="pill ${d.equip.includes(i.id) ? 'on' : ''}" data-act="cx-equip" data-v="${i.id}" aria-pressed="${d.equip.includes(i.id)}">${esc(i.name)}</button>`).join('')}</div>`).join('');
+    openSheet(d.edit ? 'Edit exercise' : 'Create exercise', `
+      <div class="field"><label for="cxName">Name</label><input id="cxName" type="text" maxlength="40" placeholder="e.g. Hanging Knee Ups" value="${esc(d.name)}" autocomplete="off"></div>
+      <div id="cxSimilar" class="muted small"></div>
+      <div class="field"><label for="cxMuscle">Main muscle</label><select id="cxMuscle"><option value="">Choose…</option>${MUSCLES.map((m) => `<option value="${m.id}" ${d.muscle === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}</select></div>
+      ${regs.length ? `<p class="muted small">Which part? (optional)</p><div class="pills">${regs.map(([id, l]) => `<button class="pill ${d.regions.includes(id) ? 'on' : ''}" data-act="cx-reg" data-v="${id}" aria-pressed="${d.regions.includes(id)}">${l}</button>`).join('')}</div>` : ''}
+      <p class="muted small">Also works (optional)</p><div class="pills">${MUSCLES.filter((m) => m.id !== d.muscle).map((m) => `<button class="pill ${d.secondary.includes(m.id) ? 'on' : ''}" data-act="cx-sec" data-v="${m.id}" aria-pressed="${d.secondary.includes(m.id)}">${m.name}</button>`).join('')}</div>
+      <h3>Equipment needed</h3><p class="muted small">Leave empty for bodyweight.</p>${eq}
+      <div class="field"><label for="cxLevel">Difficulty</label><select id="cxLevel">${[1, 2, 3].map((l) => `<option value="${l}" ${+d.level === l ? 'selected' : ''}>${LEVELS[l]}</option>`).join('')}</select></div>
+      <label class="toggle"><input type="checkbox" id="cxTimed" ${d.timed ? 'checked' : ''}> <span>It’s a timed hold (log seconds, not reps)</span></label>
+      <label class="toggle"><input type="checkbox" id="cxLoaded" ${(d.loaded === null ? CUSTOM.loadedFor(d.equip) : d.loaded) ? 'checked' : ''}> <span>I add weight to it (track and suggest weights)</span></label>
+      <div class="field"><label for="cxCue">Form tip (optional)</label><input id="cxCue" type="text" maxlength="120" placeholder="One line to remember" value="${esc(d.cue)}"></div>
+      ${d.muscle ? `<div class="field"><label for="cxLike">Animation looks like</label><select id="cxLike"><option value="auto" ${d.like === 'auto' ? 'selected' : ''}>Closest match (automatic)</option>${likeOpts}</select></div>` : ''}
+      <div class="row gap wrap"><button class="pill on" data-act="cx-save">${d.edit ? 'Save changes' : d.add && state.current ? 'Create & add to workout' : 'Create exercise'}</button><button class="pill" data-act="close-sheet">Cancel</button></div>`);
+    cxHint();
+  }
+  function cxHint() {
+    const d = ui.cdraft, n = $('#cxSimilar'); if (!d || !n) return;
+    const sim = d.edit ? [] : CUSTOM.similar(d.name, EXERCISES);
+    n.innerHTML = sim.length ? `Already in the app: ${sim.map((e) => `<b>${esc(e.name)}</b>`).join(', ')} — search the Library before creating a duplicate.` : '';
+  }
+  function cxSave() {
+    const d = ui.cdraft; if (!d) return;
+    d.loaded = $('#cxLoaded').checked; d.timed = $('#cxTimed').checked;
+    const r = CUSTOM.make(d, EXERCISES, d.edit ? d.id : '');
+    if (r.error) { toast(r.error); return; }
+    const i = state.custom.findIndex((c) => c.id === r.ex.id);
+    if (i >= 0) state.custom[i] = r.ex; else state.custom.push(r.ex);
+    CUSTOM.sync(state.custom, EXERCISES, EX_BY_ID);
+    const addNow = d.add && state.current && !d.edit;
+    if (addNow) {
+      const w = state.current;
+      w.exercises.push(makeEntry(EX_BY_ID[r.ex.id], w.goal));
+      if (!w.muscles.includes(r.ex.muscle)) w.muscles.push(r.ex.muscle);
+    }
+    save(); closeSheet(); render(); toast(addNow ? `Created and added ${r.ex.name}` : d.edit ? 'Exercise updated' : `Created ${r.ex.name}`);
+  }
+
   function sheetAdd() {
     const w = state.current;
     const owned = workoutProfile().equipment;
@@ -614,10 +665,10 @@
     const q = ui.addSearch.trim().toLowerCase();
     const list = EXERCISES.filter((e) => isAvailable(e, owned) && !inUse.has(e.id)
       && (ui.addMuscle === 'all' || (ui.addMuscle === 'workout' ? w.muscles.includes(e.muscle) : e.muscle === ui.addMuscle))
-      && (!q || e.name.toLowerCase().includes(q)));
+      && (!q || CUSTOM.matches(`${e.name} ${MUSCLE_NAME[e.muscle]}`, q)));
     const chips = [['workout', 'This workout'], ['all', 'All'], ...MUSCLES.map((m) => [m.id, m.name])]
       .map(([id, l]) => `<button class="pill ${ui.addMuscle === id ? 'on' : ''}" data-act="add-filter" data-m="${id}">${l}</button>`).join('');
-    openSheet('Add exercise', `<input type="search" id="addSearch" class="search" placeholder="Search" value="${esc(ui.addSearch)}"><div class="pills scroll">${chips}</div><div id="addList">${entryPickerList(list, 'pick-add')}</div>`);
+    openSheet('Add exercise', `<input type="search" id="addSearch" class="search" placeholder="Search" value="${esc(ui.addSearch)}"><div class="pills scroll">${chips}</div><div id="addList">${entryPickerList(list, 'pick-add')}</div><button class="pill wide" data-act="cx-new" data-add="1" data-name="${esc(ui.addSearch.trim())}">＋ Can’t find it? Create your own${ui.addSearch.trim() ? ': “' + esc(ui.addSearch.trim()) + '”' : ''}</button>`);
   }
 
   function sheetSummary(rec) {
@@ -843,6 +894,23 @@
         w.exercises[ui.swapIndex] = makeEntry(ex, w.goal);
         save(); closeSheet(); render(); break;
       }
+      case 'cx-new': cxOpen({ name: d.name || '', add: !!d.add }, false); break;
+      case 'cx-edit': { const c = state.custom.find((x) => x.id === d.id); if (c) cxOpen({ id: c.id, name: c.name, muscle: c.muscle, equip: c.equip.slice(), level: c.level, cue: c.cue, secondary: c.secondary.slice(), timed: c.timed, loaded: c.loaded, regions: (c.regions || []).slice(), like: c.animLike || 'auto' }, true); break; }
+      case 'cx-del': {
+        const c = state.custom.find((x) => x.id === d.id); if (!c) break;
+        if (state.current && state.current.exercises.some((e) => e.exId === c.id)) { toast('Remove it from your current workout first'); break; }
+        if (!confirm(`Delete “${c.name}”? Your past workouts keep their logged sets.`)) break;
+        state.custom = state.custom.filter((x) => x.id !== c.id); CUSTOM.sync(state.custom, EXERCISES, EX_BY_ID); save(); render(); toast('Exercise deleted'); break;
+      }
+      case 'cx-equip': case 'cx-sec': case 'cx-reg': {
+        const cd = ui.cdraft; if (!cd) break;
+        const key = act === 'cx-equip' ? 'equip' : act === 'cx-sec' ? 'secondary' : 'regions';
+        const on = cd[key].includes(d.v); cd[key] = on ? cd[key].filter((x) => x !== d.v) : cd[key].concat(d.v);
+        t.classList.toggle('on', !on); t.setAttribute('aria-pressed', !on);
+        if (act === 'cx-equip' && cd.loaded === null) { const l = $('#cxLoaded'); if (l) l.checked = CUSTOM.loadedFor(cd.equip); }
+        break;
+      }
+      case 'cx-save': cxSave(); break;
       case 'open-add': ui.addMuscle = 'workout'; ui.addSearch = ''; sheetAdd(); break;
       case 'add-filter': ui.addMuscle = d.m; sheetAdd(); break;
       case 'pick-add':
@@ -936,6 +1004,10 @@
       s[t.dataset.field] = t.value;
       if (t.dataset.field === 'w') { s.wm = true; propagateWeight(+row.dataset.i, +row.dataset.j); }
       save();
+    } else if (ui.cdraft && t.id === 'cxName') {
+      ui.cdraft.name = t.value; cxHint();
+    } else if (ui.cdraft && t.id === 'cxCue') {
+      ui.cdraft.cue = t.value;
     } else if (t.id === 'libSearch') {
       ui.libSearch = t.value; $('#libList').innerHTML = libItems();
     } else if (t.id === 'addSearch') {
@@ -950,7 +1022,12 @@
   document.addEventListener('change', (ev) => {
     const t = ev.target;
     if (C.change(t) || T.change(t)) return;
-    if (t.id === 'libMine') { ui.libMine = t.checked; $('#libList').innerHTML = libItems(); }
+    if (ui.cdraft && t.id === 'cxMuscle') { ui.cdraft.muscle = t.value; ui.cdraft.regions = []; ui.cdraft.secondary = ui.cdraft.secondary.filter((m) => m !== t.value); ui.cdraft.like = 'auto'; ui.cdraft.loaded = $('#cxLoaded').checked; ui.cdraft.timed = $('#cxTimed').checked; sheetCustom(); }
+    else if (ui.cdraft && t.id === 'cxLevel') ui.cdraft.level = +t.value;
+    else if (ui.cdraft && t.id === 'cxLike') ui.cdraft.like = t.value;
+    else if (ui.cdraft && t.id === 'cxLoaded') ui.cdraft.loaded = t.checked;
+    else if (ui.cdraft && t.id === 'cxTimed') ui.cdraft.timed = t.checked;
+    else if (t.id === 'libMine') { ui.libMine = t.checked; $('#libList').innerHTML = libItems(); }
     else if (t.id === 'warmToggle') { state.settings.warmups = t.checked; save(); }
     else if (t.id === 'ssToggle') { state.settings.supersets = t.checked; save(); }
     else if (t.id === 'restToggle') { state.settings.restTimer = t.checked; save(); if (!t.checked) { ui.restEnd = 0; tick(); } }
@@ -969,6 +1046,8 @@
             const d = defaults();
             state = Object.assign(d, data, { settings: Object.assign(d.settings, data.settings || {}), body: Object.assign(d.body, data.body || {}) });
             if (!state.profiles.some((p) => p.id === state.activeProfile)) state.activeProfile = state.profiles[0].id;
+            if (!Array.isArray(state.custom)) state.custom = [];
+            CUSTOM.sync(state.custom, EXERCISES, EX_BY_ID);
             save(); render(); toast('Backup restored');
           }
         } catch (e) { toast('That file isn’t a valid backup'); }

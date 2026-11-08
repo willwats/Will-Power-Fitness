@@ -368,3 +368,8 @@ ul.guide { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; 
 
 .why { margin: 4px 0 0; font-size: .85rem; font-weight: 700; color: var(--accent); }
 .sport .pills { margin: 8px 0; }
+
+.tags .cust { background: var(--accent); color: #fff; }
+.pill.danger { color: #c62828; }
+select { width: 100%; padding: 10px; border-radius: 12px; border: 1px solid var(--line, #d9dde5); background: var(--card, #fff); color: inherit; font: inherit; }
+#cxSimilar { margin: -4px 0 8px; }

@@ -111,6 +111,7 @@
   }
 
   WPA.templateFor = (ex) => {
+    if (ex.animLike) ex = Object.assign({}, ex, { name: ex.animLike });   // custom exercises borrow a built-in animation
     for (const [re, t] of RULES) if (re.test(ex.name)) return typeof t === 'function' ? t(ex) : t;
     return null;
   };

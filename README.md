@@ -106,3 +106,6 @@ Profiles, workouts and settings live in your browser's `localStorage` on the dev
 
 ## Sport training
 Pick a sport on the Train tab (basketball, football, soccer, baseball/softball, golf, tennis/pickleball, hockey, boxing/MMA/wrestling, volleyball, running, swimming, cycling). The builder then favors the muscles and lifts that help that sport, uses a matching sets/reps style, and shows a one-line reason on each sport-specific exercise. **Build next session** rotates through that sport's session types (e.g. Rotation & core → Legs & hips → Upper & posture). Data lives in `sport.js`.
+
+## Custom exercises
+Library → **Create your own exercise** (or "Can't find it?" in the Add-exercise sheet, or when a library search finds nothing). Set name, main muscle (and part, e.g. lower abs), equipment, difficulty, timed hold, whether to track weight, and which built-in animation it should look like. Custom exercises join the builder, swaps and weight suggestions, can be edited or deleted, and are included in backups. Search is forgiving ("knee ups" finds Hanging Knee Raise). Logic is in `custom.js`.
