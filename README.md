@@ -10,7 +10,7 @@ No account, no backend, no build step — it's a static web app that runs entire
 - **Focus areas** — after picking a body part, narrow it: Abs → upper / middle / lower / obliques / deep core, Chest → upper / mid / lower, Shoulders → front / side / rear, Back → lats / upper back / lower back. The workout then uses exercises for that region.
 - **Start button** — hit ▶ Start workout when you begin; the clock runs from then (logging a set also starts it).
 - **Equipment profiles** — create as many as you want (e.g. *Gym*, *Home – Upstairs*). Each profile is a checklist of gear; workouts only ever use exercises you can do with the active profile.
-- **169 exercises** with form cues, from bodyweight to full gym, tagged by muscle, equipment, difficulty and compound/isolation.
+- **279 exercises** with form cues, from bodyweight to full gym, tagged by muscle, equipment, difficulty and compound/isolation.
 - **Workout generator** — splits the exercise budget across your target muscles, leads with compound lifts, finishes with isolation/core, and avoids repeating what you did in your last few workouts. Choose goal (Strength / Muscle / Endurance), experience level and number of exercises.
 - **Animated demos** — every exercise has a looping animation of an athlete (shorts, shoes, the weight or cable it uses) showing the movement, with the muscle you're training glowing. On workout cards and in the library.
 - **Form guide** — tap any exercise animation for a large view with slow motion, pause, numbered start/finish ghost poses, plain-language steps and form tips. Animations zoom in on the movement.
@@ -109,3 +109,6 @@ Pick a sport on the Train tab (basketball, football, soccer, baseball/softball, 
 
 ## Custom exercises
 Library → **Create your own exercise** (or "Can't find it?" in the Add-exercise sheet, or when a library search finds nothing). Set name, main muscle (and part, e.g. lower abs), equipment, difficulty, timed hold, whether to track weight, and which built-in animation it should look like. Custom exercises join the builder, swaps and weight suggestions, can be edited or deleted, and are included in backups. Search is forgiving ("knee ups" finds Hanging Knee Raise). Logic is in `custom.js`.
+
+## Extra exercises
+`exercises-more.js` adds 107 variations (names from the public StrengthLog exercise directory, with form cues written for this app) — landmine presses, preacher curls, T-bar rows, box squats, Copenhagen planks and more. Each borrows the animation of the closest built-in move. Not included: neck work, Olympic lifts, muscle-ups and machines the app has no gear option for.
