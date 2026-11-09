@@ -101,7 +101,6 @@ Profiles, workouts and settings live in your browser's `localStorage` on the dev
 - **Warm-up sets** (auto-added before the first heavy lift per muscle) and **supersets** (optional toggle in the builder). Warm-ups don't count toward PRs or volume.
 - **Weight prefill**: the weight you enter fills the remaining sets of that exercise.
 - **History → Body**: weight log with trend chart and ideal-weight line, measurements, and progress photos (stored only on the device, not in backups).
-- **Water & protein** tracker on Train, with targets from your weight and training focus.
 - Files added: `plan.js`, `plan-ui.js`, `track.js`, `track-ui.js`. `native/` holds an unverified iPhone (Capacitor) scaffold.
 
 ## Sport training
@@ -114,4 +113,4 @@ Library → **Create your own exercise** (or "Can't find it?" in the Add-exercis
 `exercises-more.js` adds 107 variations (names from the public StrengthLog exercise directory, with form cues written for this app) — landmine presses, preacher curls, T-bar rows, box squats, Copenhagen planks and more. Each borrows the animation of the closest built-in move. Not included: neck work, Olympic lifts, muscle-ups and machines the app has no gear option for.
 
 ## Layout notes (usability pass)
-Train now leads with the muscle picker and a sticky **Build workout** button; goal, experience, warm-ups, supersets, exercise count and the sport picker sit in a collapsible **Workout options** row that summarizes your choices. Today's plan, calories, profile prompt and water/protein tracking follow under **Your day**. The last tab is now **Me** (profile, gear, settings, backup). Finish workout stays pinned at the bottom once you've started.
+Train now leads with the muscle picker and a sticky **Build workout** button; goal, experience, warm-ups, supersets, exercise count and the sport picker sit in a collapsible **Workout options** row that summarizes your choices. Today's plan, calories, profile prompt follow under **Your day**. The last tab is now **Me** (profile, gear, settings, backup). Finish workout stays pinned at the bottom once you've started.

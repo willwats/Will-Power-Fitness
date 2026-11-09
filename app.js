@@ -266,7 +266,7 @@
     if (ui.trainMode === 'cardio') return C.modeSwitch() + C.trainView();
     const planSet = P.isSet();
     return C.modeSwitch() + C.liveBanner() + (planSet ? P.trainCard() : '') + viewBuilder()
-      + `<h2 class="section">Your day</h2>` + C.todayMini() + B.trainBanner() + (planSet ? '' : P.trainCard()) + T.nutritionCard();
+      + `<h2 class="section">Your day</h2>` + C.todayMini() + B.trainBanner() + (planSet ? "" : P.trainCard());
   }
 
   function viewBuilder() {
