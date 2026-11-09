@@ -264,7 +264,9 @@
   function viewTrain() {
     if (state.current) return viewWorkout();
     if (ui.trainMode === 'cardio') return C.modeSwitch() + C.trainView();
-    return C.modeSwitch() + B.trainBanner() + P.trainCard() + C.liveBanner() + C.todayMini() + T.nutritionCard() + viewBuilder();
+    const planSet = P.isSet();
+    return C.modeSwitch() + C.liveBanner() + (planSet ? P.trainCard() : '') + viewBuilder()
+      + `<h2 class="section">Your day</h2>` + C.todayMini() + B.trainBanner() + (planSet ? '' : P.trainCard()) + T.nutritionCard();
   }
 
   function viewBuilder() {
@@ -278,10 +280,10 @@
       const count = poolCount(m.id, owned);
       const d = daysSince(m.id);
       const rec = d === null ? 'fresh' : d >= 3 ? 'fresh' : d === 2 ? 'mid' : 'hot';
-      const ago = d === null ? 'not trained yet' : d === 0 ? 'trained today' : `${d}d ago`;
+      const ago = d === null ? '' : d === 0 ? ' · today' : ` · ${d}d ago`;
       const on = selected.includes(m.id);
       return `<button class="chip ${on ? 'on' : ''}" data-act="toggle-muscle" data-m="${m.id}" aria-pressed="${on}" ${count ? '' : 'disabled'}>
-        <span class="dot ${rec}"></span><b>${m.name}</b><small>${count ? `${count} exercises · ${ago}` : 'no gear for this'}</small></button>`;
+        <span class="dot ${rec}"></span><b>${m.name}</b><small>${count ? `${count} exercises${ago}` : 'no gear for this'}</small></button>`;
     }).join('');
 
     const presets = MUSCLE_PRESETS.map(([id, label]) => `<button class="pill" data-act="preset" data-p="${id}">${label}</button>`).join('')
@@ -297,19 +299,20 @@
 
     const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button data-act="set-${key}" data-v="${v}" class="${s[key] === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 
-    return `
+    const sp = SPORT.get(s.sport);
+    const summary = [GOALS[s.goal].label, s.level[0].toUpperCase() + s.level.slice(1), sp ? sp.icon + ' ' + sp.name : null, `${s.count} exercises`].filter(Boolean).join(' · ');
+    return `<div class="builder">
       <section class="card">
-        <div class="row between">
-          <div><h2>What are we training?</h2>
-          <p class="muted">Using <b>${esc(prof.name)}</b> · ${unlocked} exercises unlocked</p></div>
-          <div class="row gap"><button class="pill" data-act="edit-profile" data-id="${prof.id}">Edit gear</button><button class="pill" data-act="open-profiles">Switch</button></div>
-        </div>
+        <div><h2>What are we training?</h2>
+        <p class="muted">Tap the muscles you want today.</p></div>
         <div class="pills">${presets}</div>
         <div class="chips">${chips}</div>
         ${regionRows}
+        <p class="muted small gearline"><b>${esc(prof.name)}</b> · ${unlocked} exercises · <button class="link" data-act="edit-profile" data-id="${prof.id}">Edit gear</button> · <button class="link" data-act="open-profiles">Switch</button></p>
       </section>
-      ${sportCard()}
-      <section class="card">
+      <details class="card opts" id="opts" ${ui.optsOpen ? 'open' : ''}>
+        <summary><span><b>Workout options</b><small>${esc(summary)}</small></span><i aria-hidden="true">▾</i></summary>
+        ${sportCard()}
         <div class="field"><label>Goal</label>${seg('goal', Object.entries(GOALS).map(([k, g]) => [k, g.label]))}</div>
         <div class="field"><label>Experience</label>${seg('level', [['beginner', 'Beginner'], ['intermediate', 'Intermediate'], ['advanced', 'Advanced']])}</div>
         <label class="toggle"><input type="checkbox" id="warmToggle" ${s.warmups ? 'checked' : ''}> <span>Add warm-up sets before heavy lifts</span></label>
@@ -317,8 +320,9 @@
         <div class="field row between"><label>Exercises</label>
           <div class="stepper"><button data-act="count" data-d="-1" aria-label="Fewer">−</button><output>${s.count}</output><button data-act="count" data-d="1" aria-label="More">+</button></div>
         </div>
-      </section>
-      <button class="primary big" data-act="generate" ${selected.length ? '' : 'disabled'}>${selected.length ? `Build ${titleOf(selected, state.regions)} workout${SPORT.get(state.settings.sport) ? ' for ' + esc(SPORT.get(state.settings.sport).name) : ''}` : 'Pick a body part to start'}</button>`;
+      </details>
+      <div class="buildbar"><button class="primary big" data-act="generate" ${selected.length ? '' : 'disabled'}>${selected.length ? `Build ${titleOf(selected, state.regions)} workout${sp ? ' for ' + esc(sp.name) : ''}` : 'Pick a body part to start'}</button></div>
+    </div>`;
   }
 
   function sportCard() {
@@ -333,7 +337,7 @@
         <button class="pill" data-act="sport-build">Or let ${esc(sp.name)} pick today’s session: ${esc(day[0])}</button>
         <p class="muted small">Session rotation: ${sp.days.map((d, k) => (k === di ? `<b>${esc(d[0])}</b>` : esc(d[0]))).join(' → ')}.</p>`;
     }
-    return `<section class="card sport"><h2>Train for a sport</h2><div class="pills" id="sportPills">${pills}</div>${more}</section>`;
+    return `<div class="field sport"><label>Train for a sport</label><div class="pills scroll" id="sportPills">${pills}</div>${more}</div>`;
   }
 
   function entryCard(entry, i) {
@@ -398,7 +402,7 @@
       </section>
       ${w.exercises.map(entryCard).join('')}
       <button class="pill wide" data-act="open-add">＋ Add exercise</button>
-      <button class="primary big" data-act="finish">Finish workout</button>`;
+      ${started ? '<div class="buildbar"><button class="primary big" data-act="finish">Finish workout</button></div>' : ''}`;
   }
 
   function libItems() {
@@ -1058,7 +1062,7 @@
   });
 
   // library items only mount their animation once opened
-  document.addEventListener('toggle', (ev) => { if (ev.target.open && ev.target.classList.contains('lib')) WPA.hydrate(ev.target); }, true);
+  document.addEventListener('toggle', (ev) => { if (ev.target.id === 'opts') ui.optsOpen = ev.target.open; else if (ev.target.open && ev.target.classList.contains('lib')) WPA.hydrate(ev.target); }, true);
 
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && !$('#sheet').hidden) closeSheet();

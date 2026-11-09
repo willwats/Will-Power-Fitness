@@ -373,3 +373,23 @@ ul.guide { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; 
 .pill.danger { color: #c62828; }
 select { width: 100%; padding: 10px; border-radius: 12px; border: 1px solid var(--line, #d9dde5); background: var(--card, #fff); color: inherit; font: inherit; }
 #cxSimilar { margin: -4px 0 8px; }
+
+/* ── usability pass ── */
+h2.section { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 18px 2px 8px; font-weight: 800; }
+.builder { display: flex; flex-direction: column; gap: 12px; }
+.gearline { margin: 0; }
+.gearline .link { font-weight: 700; color: var(--accent); }
+.opts { padding: 0; gap: 0; }
+.opts > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
+.opts > summary::-webkit-details-marker { display: none; }
+.opts > summary b { display: block; }
+.opts > summary small { display: block; color: var(--muted); font-size: .8rem; margin-top: 2px; }
+.opts > summary i { font-style: normal; color: var(--muted); transition: transform .2s; }
+.opts[open] > summary i { transform: rotate(180deg); }
+.opts[open] > summary { border-bottom: 1px solid var(--line); }
+.opts > :not(summary) { margin: 12px 16px 0; }
+.opts > :last-child { margin-bottom: 16px; }
+.opts .sport .muted { margin: 6px 0 0; }
+.opts .sport [data-act="sport-build"] { margin-top: 8px; }
+.buildbar { position: sticky; bottom: calc(var(--nav-h) + 8px + env(safe-area-inset-bottom)); z-index: 20; padding: 8px 0 4px; background: linear-gradient(to top, var(--bg) 70%, transparent); }
+.buildbar .primary { box-shadow: 0 6px 18px rgba(0,0,0,.18); }

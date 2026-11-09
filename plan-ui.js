@@ -75,5 +75,5 @@ const WPP = (ctx) => {
   function refreshAuto() { const d = ui.pdraft, n = document.getElementById('plAuto'); if (d && n) n.textContent = PLAN.SPLITS[PLAN.resolveSplit(d, (S().body || {}).focus)].name; }
   function input(t) { if (t.id === 'plTime' && ui.pdraft) { ui.pdraft.time = t.value; return true; } return false; }
 
-  return { trainCard, act, input };
+  return { trainCard, act, input, isSet: () => !!PLAN.getPlan(S()).set };
 };

@@ -19,7 +19,7 @@ No account, no backend, no build step — it's a static web app that runs entire
 - **Logging** — weight + reps per set, last-time numbers shown and pre-filled, auto rest timer (with sound and vibration), workout summary.
 - **Recovery dots** on each muscle (red = trained in the last day or so, green = rested) based on your history.
 - **History** with weekly stats, **exercise library** with search, **export/import** backups.
-- **Your profile & focus** — enter height, current weight and ideal weight (Profiles → You), then pick what to work toward: *Build muscle (bulk)*, *Get lean (cut)*, *Get stronger*, *Lean & muscular (recomp)* or *Athletic*. The focus sets your sets/reps style and weekly cardio target, and the app shows how far you are from your ideal weight and a rough timeline.
+- **Your profile & focus** — enter height, current weight and ideal weight (Me → You), then pick what to work toward: *Build muscle (bulk)*, *Get lean (cut)*, *Get stronger*, *Lean & muscular (recomp)* or *Athletic*. The focus sets your sets/reps style and weekly cardio target, and the app shows how far you are from your ideal weight and a rough timeline.
 - **Cardio on Train** — switch Train between *Strength* and *Cardio* to start a walk, run, ride and more, with a weekly cardio progress bar.
 - **Cardio tab** — start a walk, run, hike or ride with a live timer, GPS distance, pace and calories; or log any cardio by hand (elliptical, rower, swim, HIIT…). A daily **calories burned** total shows on Cardio and Train, with a 7-day chart. Strength workouts get an estimated calorie count too.
 - **Apple Health bridge** — a one-time iOS Shortcut brings in your day's calories, steps and workouts (so walks not logged in the app still count), and another sends sessions from the app to Apple Fitness. See *Apple Health* below.
@@ -77,7 +77,7 @@ python3 -m http.server 8000
 
 ## Your data
 
-Profiles, workouts and settings live in your browser's `localStorage` on the device you use. Nothing is uploaded anywhere. Use **Profiles → Export backup** to save a JSON copy, and **Import backup** to move to another device. Clearing site data erases the app's data.
+Profiles, workouts and settings live in your browser's `localStorage` on the device you use. Nothing is uploaded anywhere. Use **Me → Export backup** to save a JSON copy, and **Import backup** to move to another device. Clearing site data erases the app's data.
 
 ## Files
 
@@ -112,3 +112,6 @@ Library → **Create your own exercise** (or "Can't find it?" in the Add-exercis
 
 ## Extra exercises
 `exercises-more.js` adds 107 variations (names from the public StrengthLog exercise directory, with form cues written for this app) — landmine presses, preacher curls, T-bar rows, box squats, Copenhagen planks and more. Each borrows the animation of the closest built-in move. Not included: neck work, Olympic lifts, muscle-ups and machines the app has no gear option for.
+
+## Layout notes (usability pass)
+Train now leads with the muscle picker and a sticky **Build workout** button; goal, experience, warm-ups, supersets, exercise count and the sport picker sit in a collapsible **Workout options** row that summarizes your choices. Today's plan, calories, profile prompt and water/protein tracking follow under **Your day**. The last tab is now **Me** (profile, gear, settings, backup). Finish workout stays pinned at the bottom once you've started.

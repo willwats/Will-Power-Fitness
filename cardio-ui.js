@@ -300,7 +300,7 @@ const WPC = (ctx) => {
     const w = BODY.cardioWeek(S());
     return `<section class="card"><div class="row between"><h2>Weekly cardio</h2><small class="muted">${w.done} / ${w.target} min</small></div>
       <div class="meter" role="progressbar" aria-valuenow="${w.done}" aria-valuemax="${w.target}"><span style="width:${w.pct}%"></span></div>
-      <p class="muted small">${w.focus ? `Target for “${esc(w.focus.name)}”. Change it in Profiles → You.` : 'General health target. Pick a training focus in Profiles to tailor it.'}</p></section>`;
+      <p class="muted small">${w.focus ? `Target for “${esc(w.focus.name)}”. Change it in Me → You.` : 'General health target. Pick a training focus in Profiles to tailor it.'}</p></section>`;
   }
   function modeSwitch() {
     return `<div class="seg modes" role="group" aria-label="Workout type"><button data-act="cd-mode" data-v="strength" class="${ui.trainMode !== 'cardio' ? 'on' : ''}">Strength</button><button data-act="cd-mode" data-v="cardio" class="${ui.trainMode === 'cardio' ? 'on' : ''}">Cardio</button></div>`;

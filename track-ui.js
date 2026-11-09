@@ -56,7 +56,7 @@ const WPT = (ctx) => {
       <div class="row gap wrap">${waterBtns}<button class="pill ghost" data-act="nt-water" data-ml="${lb ? -Math.round(TRACK.oz2ml(8)) : -250}" aria-label="Undo water">−</button></div>
       ${row('Protein', d.protein, g ? g.protein : 0, 'g')}
       <div class="row gap wrap"><button class="pill" data-act="nt-protein" data-g="10">+10 g</button><button class="pill" data-act="nt-protein" data-g="25">+25 g</button><button class="pill" data-act="nt-protein" data-g="40">+40 g</button><button class="pill ghost" data-act="nt-protein" data-g="-10" aria-label="Undo protein">−</button></div>
-      <p class="muted small">${g ? `Targets from your weight${(st.body || {}).focus ? ` and “${esc(BODY.FOCUS_BY_ID[st.body.focus].name)}” focus` : ''}${TRACK.trainedOn(st, key) ? ' (extra water for training today)' : ''}.` : 'Add your weight in Profiles → You to get daily targets.'}</p>
+      <p class="muted small">${g ? `Targets from your weight${(st.body || {}).focus ? ` and “${esc(BODY.FOCUS_BY_ID[st.body.focus].name)}” focus` : ''}${TRACK.trainedOn(st, key) ? ' (extra water for training today)' : ''}.` : 'Add your weight in Me → You to get daily targets.'}</p>
     </section>`;
   }
 
