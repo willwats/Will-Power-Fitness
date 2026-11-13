@@ -47,6 +47,8 @@ No account, no backend, no build step — it's a static web app that runs entire
 
 ## Apple Health
 
+**iPhone app (automatic):** `native/` wraps the app with a HealthKit plugin so Health data syncs without Shortcuts — see `native/README.md` (needs a Mac with Xcode; unverified, never compiled). Below is the website's Shortcuts bridge.
+
 Web apps can't read Apple Health directly, so the app uses iOS Shortcuts as the bridge (full steps are in the app: **Cardio → Apple Health → Setup guide**).
 
 - **Sync in:** a Shortcut named `Will Power Sync` reads today's Active Energy, Steps (and optionally Workouts), and copies text like `#health&kcal=512&steps=8423&wtype=Walking&wmin=32&wkcal=178&wdist=1.8` to the clipboard. Tap **Sync Apple Health**, then **Paste from clipboard**. Opening a link ending in that `#health&…` text also imports it.

@@ -139,6 +139,43 @@ const WPC = (ctx) => {
     ctx.save(); closeSheet(); ctx.render(); toast(`Saved · ${rec.kcal} kcal`);
   }
 
+  /* ───────── native HealthKit (only inside the iPhone app) ───────── */
+  const cap = () => (typeof window !== 'undefined' ? window.Capacitor : null);
+  const NATIVE = !!(cap() && cap().isNativePlatform && cap().isNativePlatform());
+  let HB = null;
+  const hb = () => (HB = HB || cap().registerPlugin('HealthBridge'));
+  let nativeBusy = false;
+  async function nativeSync(manual) {
+    if (!NATIVE || nativeBusy) return;
+    nativeBusy = true;
+    try {
+      const st = S();
+      if (!st.settings.hkAsked) { await hb().requestAccess(); st.settings.hkAsked = true; ctx.save(); }
+      const r = await hb().today();
+      const parsed = {
+        day: CARDIO.dayKey(Date.now()), kcal: Math.round(r.kcal || 0), steps: Math.round(r.steps || 0), minutes: Math.round(r.exercise || 0),
+        stand: Math.round(r.stand || 0), rest: Math.round(r.rest || 0), miles: 0,
+        workouts: (r.workouts || []).map((w) => ({ type: CARDIO.healthType(w.type), label: w.type, dur: Math.round(w.minutes * 60), kcal: Math.round(w.kcal || 0), miles: w.miles || 0, start: w.start })),
+      };
+      const res = CARDIO.mergeHealth(st, parsed, U());
+      if (r.goals && r.goals.move > 0) st.settings.ringGoals = { move: Math.round(r.goals.move), ex: Math.round(r.goals.exercise), stand: Math.round(r.goals.stand) };
+      ctx.save(); ctx.render();
+      if (manual) toast(`Synced · ${fmtNum(parsed.kcal)} kcal${res.added ? ` · ${res.added} workout${res.added > 1 ? 's' : ''}` : ''}`);
+    } catch (e) {
+      if (manual) toast('Couldn’t read Apple Health — allow access in Settings → Health → Data Access');
+    } finally { nativeBusy = false; }
+  }
+  /** Used by the History tab too: write a workout into Health (native) — returns false when not in the iPhone app. */
+  async function nativeSave(rec) {
+    if (!NATIVE) return false;
+    try {
+      if (!S().settings.hkAsked) { await hb().requestAccess(); S().settings.hkAsked = true; ctx.save(); }
+      await hb().saveWorkout({ type: rec.label || typeName(rec.type), start: rec.date, end: rec.date + rec.dur * 1000, kcal: rec.kcal || 0, meters: rec.dist ? CARDIO.unitToMeters(rec.dist, U()) : 0 });
+      toast('Saved to Apple Health'); return true;
+    } catch (e) { toast('Couldn’t save to Apple Health'); return 'failed'; }
+  }
+  if (NATIVE) document.addEventListener('visibilitychange', () => { if (!document.hidden) nativeSync(false); });
+
   /* ───────── Apple Health bridge ───────── */
   function importText(text) {
     const parsed = CARDIO.parseHealthLink(text, U());
@@ -182,8 +219,9 @@ const WPC = (ctx) => {
       <p class="muted small">Honest limits: this is a manual hand-off, not automatic background sync — that needs a native iOS app. Also, iPhone suspends web apps when the screen locks, so the live GPS tracker works best with the screen on; for long walks, start a Workout on your Watch/Fitness app and sync afterwards.</p>`);
   }
 
-  function sendToHealth(id) {
+  async function sendToHealth(id) {
     const rec = (S().cardio || []).find((c) => c.id === id); if (!rec) return;
+    if (NATIVE) { if ((await nativeSave(rec)) === true) { rec.sent = true; ctx.save(); ctx.render(); } return; }
     rec.sent = true; ctx.save();
     toast('Sending to Apple Health…');
     ctx.render();
@@ -196,7 +234,7 @@ const WPC = (ctx) => {
     if (ok) { CARDIO.mergeHealth(S(), ok, U()); ctx.save(); ui.tab = 'cardio'; setTimeout(() => toast(`Synced from Apple Health${ok.kcal ? ` · ${fmtNum(ok.kcal)} kcal` : ''}`), 300); }
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
   }
-  function boot() { const L = live(); if (L && L.running) startWatch(); }
+  function boot() { const L = live(); if (L && L.running) startWatch(); if (NATIVE) nativeSync(false); }
 
   /* ───────── views ───────── */
   const todayKey = () => CARDIO.dayKey(Date.now());
@@ -294,11 +332,11 @@ const WPC = (ctx) => {
     const st = S(), at = st.healthSyncedAt;
     return `<section class="card">
       <h2>Apple Health</h2>
-      <p class="muted small">Pull in walks and workouts you didn’t log here — plus your day’s total calories and steps — with a one-time Shortcut.</p>
+      <p class="muted small">${NATIVE ? 'Reads your calories, steps, workouts and activity rings straight from Apple Health. It also refreshes whenever you open the app.' : 'Pull in walks and workouts you didn’t log here — plus your day’s total calories and steps — with a one-time Shortcut.'}</p>
       <div class="row gap wrap">
         <button class="pill on" data-act="cd-sync">Sync Apple Health</button>
-        <button class="pill ${ui.awaiting ? 'on attn' : ''}" data-act="cd-paste">Paste from clipboard</button>
-        <button class="pill ghost" data-act="cd-guide">Setup guide</button>
+        ${NATIVE ? '' : `<button class="pill ${ui.awaiting ? 'on attn' : ''}" data-act="cd-paste">Paste from clipboard</button>
+        <button class="pill ghost" data-act="cd-guide">Setup guide</button>`}
       </div>
       ${ui.awaiting ? '<p class="small attn-note">Back from Shortcuts? Tap <b>Paste from clipboard</b> to import.</p>' : ''}
       <p class="muted small">${at ? `Last synced ${fmtDate(at)} ${timeOf(at)}` : 'Never synced'}</p>
@@ -378,7 +416,7 @@ const WPC = (ctx) => {
         if (confirm('Delete this entry?')) { S().cardio = S().cardio.filter((c) => c.id !== t.dataset.id); ctx.save(); ctx.render(); }
         return true;
       case 'cd-send': sendToHealth(t.dataset.id); return true;
-      case 'cd-sync': ui.awaiting = true; ctx.render(); location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(SYNC_SHORTCUT)}`; return true;
+      case 'cd-sync': if (NATIVE) { nativeSync(true); return true; } ui.awaiting = true; ctx.render(); location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(SYNC_SHORTCUT)}`; return true;
       case 'cd-paste':
         if (navigator.clipboard && navigator.clipboard.readText) navigator.clipboard.readText().then((x) => { if (!importText(x)) sheetPaste(); }).catch(sheetPaste);
         else sheetPaste();
@@ -405,5 +443,5 @@ const WPC = (ctx) => {
     return false;
   }
 
-  return { view, trainView, modeSwitch, liveBanner, todayMini, todayCard, act, input, change, bootHash, boot };
+  return { native: NATIVE, nativeSave, view, trainView, modeSwitch, liveBanner, todayMini, todayCard, act, input, change, bootHash, boot };
 };

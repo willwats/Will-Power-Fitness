@@ -1142,6 +1142,11 @@
       case 'hist-send': {
         const x = state.history.find((h) => h.id === d.id); if (!x) break;
         const end = x.endedAt || x.date + 45 * 60000;
+        if (C.native) {
+          C.nativeSave({ type: 'strength', label: 'Strength Training', date: x.date, dur: Math.max(60, (end - x.date) / 1000), kcal: x.kcal || 0, dist: 0 })
+            .then((ok) => { if (ok === true) { x.sent = true; save(); render(); } });
+          break;
+        }
         x.sent = true; save(); toast('Sending to Apple Health…'); render();
         location.href = CARDIO.sendToHealthUrl({ type: 'strength', date: x.date, dur: Math.max(60, (end - x.date) / 1000), kcal: x.kcal || 0, dist: 0 }, state.settings.units);
         break;

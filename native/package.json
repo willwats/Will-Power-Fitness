@@ -7,7 +7,9 @@
     "sync-web": "node sync-web.js",
     "ios:add": "npx cap add ios",
     "ios:sync": "npm run sync-web && npx cap sync ios",
-    "ios:open": "npx cap open ios"
+    "ios:open": "npx cap open ios",
+    "ios:healthkit": "ruby add-healthkit.rb",
+    "ios:setup": "gem install xcodeproj --user-install && npm install && npm run sync-web && npx cap add ios && npm run ios:healthkit && npx cap sync ios"
   },
   "dependencies": {
     "@capacitor/core": "^6.0.0",
