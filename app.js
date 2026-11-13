@@ -316,7 +316,7 @@
         <div class="field"><label>Goal</label>${seg('goal', Object.entries(GOALS).map(([k, g]) => [k, g.label]))}</div>
         <div class="field"><label>Experience</label>${seg('level', [['beginner', 'Beginner'], ['intermediate', 'Intermediate'], ['advanced', 'Advanced']])}</div>
         <label class="toggle"><input type="checkbox" id="warmToggle" ${s.warmups ? 'checked' : ''}> <span>Add warm-up sets before heavy lifts</span></label>
-        <label class="toggle"><input type="checkbox" id="ssToggle" ${s.supersets ? 'checked' : ''}> <span>Pair exercises into supersets (saves time)</span></label>
+        <label class="toggle"><input type="checkbox" id="ssToggle" ${s.supersets ? 'checked' : ''}> <span>Auto-pair into supersets when building (you can also link any two during a workout)</span></label>
         <div class="field row between"><label>Exercises</label>
           <div class="stepper"><button data-act="count" data-d="-1" aria-label="Fewer">−</button><output>${s.count}</output><button data-act="count" data-d="1" aria-label="More">+</button></div>
         </div>
@@ -340,19 +340,69 @@
     return `<div class="field sport"><label>Train for a sport</label><div class="pills scroll" id="sportPills">${pills}</div>${more}</div>`;
   }
 
-  function entryCard(entry, i) {
-    const ex = EX_BY_ID[entry.exId];
-    const units = state.settings.units;
+  function lastText(ex) {
     const last = lastLog(ex.id);
-    const lastTxt = last ? 'Last: ' + last.map((x) => (ex.timed ? `${x.r}s` : `${x.w ? x.w + '×' : ''}${x.r}`)).join(' · ') : 'First time — pick a weight that feels right';
-    let wn = 0;
-    const rows = entry.sets.map((st, j) => `
+    return last ? 'Last: ' + last.map((x) => (ex.timed ? `${x.r}s` : `${x.w ? x.w + '×' : ''}${x.r}`)).join(' · ') : 'First time — pick a weight that feels right';
+  }
+  const noteHtml = (entry) => (entry.note ? `<p class="sugg ${entry.nkind}"><span aria-hidden="true">${entry.nkind === 'progress' || entry.nkind === 'reps' ? '▲' : entry.nkind === 'lighter' ? '▼' : entry.nkind === 'estimate' ? '≈' : '='}</span> ${esc(entry.note)}</p>` : '');
+  const whyHtml = (entry) => (entry.why ? `<p class="why">${(SPORT.get(state.current && state.current.sport && state.current.sport.id) || {}).icon || '★'} ${esc(entry.why)}</p>` : '');
+  /** One set row. label = number shown at the left. */
+  function setRow(entry, i, j, label) {
+    const ex = EX_BY_ID[entry.exId], st = entry.sets[j], units = state.settings.units;
+    return `
       <div class="set ${st.done ? 'done' : ''} ${st.warm ? 'warm' : ''}" data-i="${i}" data-j="${j}">
-        <span class="n">${st.warm ? 'W' : ++wn}</span>
+        <span class="n">${label}</span>
         ${ex.timed ? '<span class="w-na"></span><span></span>' : `<input class="w" inputmode="decimal" data-field="w" placeholder="${ex.loaded ? '0' : 'BW'}" value="${esc(st.w)}" aria-label="Weight"><span class="u">${units}</span>`}
         <input class="r" inputmode="numeric" data-field="r" placeholder="${esc(entry.target.reps)}" value="${esc(st.r)}" aria-label="${ex.timed ? 'Seconds' : 'Reps'}"><span class="u">${ex.timed ? 'sec' : 'reps'}</span>
         <button class="check" data-act="toggle-set" aria-pressed="${st.done}" aria-label="Mark set ${j + 1} done">✓</button>
-      </div>`).join('');
+      </div>`;
+  }
+  /** Two linked exercises as one card: A1, B1, A2, B2 … with the rest timer after each round. */
+  function ssCard(a, ia, b, ib) {
+    const blocks = [[a, ia, 'A'], [b, ib, 'B']].map(([en, idx, tag]) => {
+      const ex = EX_BY_ID[en.exId];
+      return `<div class="ssblock">
+        <div class="hd-text"><p class="who"><b>${tag}</b> <span class="muted small">${MUSCLE_NAME[ex.muscle]}</span></p><h3>${esc(ex.name)}</h3>
+        <p class="meta">${esc(equipLabel(ex))} · <b>${en.target.sets} × ${esc(en.target.reps)}${ex.timed ? 's' : ''}</b></p>
+        <p class="last">${esc(lastText(ex))}</p>${whyHtml(en)}${noteHtml(en)}
+        <p class="blk-actions"><button class="link" data-act="swap" data-xi="${idx}">Swap</button><button class="link danger" data-act="remove-ex" data-xi="${idx}">Remove</button></p></div>
+        <div class="anim" data-ex="${ex.id}" data-act="form-guide" role="button" tabindex="0" aria-label="Open form guide for ${esc(ex.name)}"></div>
+      </div>`;
+    }).join('');
+    const warm = [[a, ia, 'A'], [b, ib, 'B']].map(([en, idx, tag]) => en.sets.map((st, j) => (st.warm ? `<p class="rlab">Warm-up · ${tag} · ${esc(EX_BY_ID[en.exId].name)}</p>${setRow(en, idx, j, 'W')}` : '')).join('')).join('');
+    const wa = workIdx(a), wb = workIdx(b), rounds = Math.max(wa.length, wb.length);
+    let rr = '';
+    for (let r = 0; r < rounds; r++) {
+      rr += `<div class="round"><p class="rh">Round ${r + 1}</p>
+        ${wa[r] !== undefined ? `<p class="rlab"><b>A</b> ${esc(EX_BY_ID[a.exId].name)}</p>${setRow(a, ia, wa[r], r + 1)}` : ''}
+        ${wb[r] !== undefined ? `<p class="rlab"><b>B</b> ${esc(EX_BY_ID[b.exId].name)}</p>${setRow(b, ib, wb[r], r + 1)}` : ''}</div>`;
+    }
+    return `<article class="ex ss ssgroup" data-i="${ia}">
+      <header class="sshd"><span class="badge ss-badge">Superset ${a.ss}</span><span class="muted small">Do A, then B straight away — rest after each round.</span></header>
+      <div class="sspair">${blocks}</div>
+      ${warm}${rr}
+      <footer>
+        <button class="link" data-act="ss-add" data-xi="${ia}">+ Round</button>
+        <button class="link" data-act="ss-rem" data-xi="${ia}">− Round</button>
+        <button class="link" data-act="ss-unlink" data-xi="${ia}">Unlink</button>
+      </footer>
+    </article>`;
+  }
+  function entriesHtml(w) {
+    let out = '';
+    for (let k = 0; k < w.exercises.length; k++) {
+      const en = w.exercises[k], nx = w.exercises[k + 1];
+      if (en.ss && en.ssPos === 1 && nx && nx.ss === en.ss && nx.ssPos === 2) { out += ssCard(en, k, nx, k + 1); k++; }
+      else out += entryCard(en, k);
+    }
+    return out;
+  }
+
+  function entryCard(entry, i) {
+    const ex = EX_BY_ID[entry.exId];
+    const lastTxt = lastText(ex);
+    let wn = 0;
+    const rows = entry.sets.map((st, j) => setRow(entry, i, j, st.warm ? 'W' : ++wn)).join('');
     return `
       <article class="ex ${entry.ss ? 'ss' : ''}" data-i="${i}">
         <header>
@@ -370,6 +420,7 @@
           <button class="link" data-act="add-set">+ Set</button>
           <button class="link" data-act="remove-set">− Set</button>
           <button class="link" data-act="swap">Swap</button>
+          ${!entry.ss && state.current && state.current.exercises.length > 1 ? '<button class="link" data-act="ss-open">🔗 Superset</button>' : ''}
           <button class="link danger" data-act="remove-ex">Remove</button>
         </footer>
       </article>`;
@@ -400,7 +451,7 @@
           <button class="pill ghost" data-act="discard">Discard</button>
         </div>
       </section>
-      ${w.exercises.map(entryCard).join('')}
+      ${entriesHtml(w)}
       <button class="pill wide" data-act="open-add">＋ Add exercise</button>
       ${started ? '<div class="buildbar"><button class="primary big" data-act="finish">Finish workout</button></div>' : ''}`;
   }
@@ -527,7 +578,7 @@
     $$('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === ui.tab));
     $('#main').innerHTML = { train: viewTrain, cardio: C.view, library: viewLibrary, history: viewHistory, gear: viewGear }[ui.tab]();
     window.scrollTo(0, y);
-    if (ui.tab === 'train') WPA.hydrate($('#main'));
+    if (ui.tab === 'train') { WPA.hydrate($('#main')); markNext(); }
     tick();
   }
 
@@ -662,6 +713,14 @@
     save(); closeSheet(); render(); toast(addNow ? `Created and added ${r.ex.name}` : d.edit ? 'Exercise updated' : `Created ${r.ex.name}`);
   }
 
+  function sheetSuperset(i) {
+    const w = state.current, me = w.exercises[i];
+    ui.ssIndex = i;
+    const others = w.exercises.map((e, k) => [e, k]).filter(([e, k]) => k !== i && !e.ss);
+    openSheet('Superset with…', `<p class="muted">Pick the exercise to pair with <b>${esc(EX_BY_ID[me.exId].name)}</b>. You’ll alternate a set of each, resting only after both.</p>
+      ${others.length ? others.map(([e, k]) => `<button class="pill wide" data-act="pick-ss" data-k="${k}">${esc(EX_BY_ID[e.exId].name)} <small class="muted">${MUSCLE_NAME[EX_BY_ID[e.exId].muscle]}</small></button>`).join('') : '<p class="empty">No other exercise to pair with. Add one first.</p>'}`);
+  }
+
   function sheetAdd() {
     const w = state.current;
     const owned = workoutProfile().equipment;
@@ -709,14 +768,38 @@
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   }
   /* Typing a weight fills the same weight into this exercise's remaining sets (unless you edited them yourself). */
-  function propagateWeight(i, j) {
+  /** Carry a weight ('w') or reps ('r') change down to the remaining, not-yet-done working sets of that exercise. */
+  function propagate(i, j, field) {
     const sets = state.current.exercises[i].sets, src = sets[j];
-    if (src.warm || !String(src.w).trim()) return;
+    if (src.warm || !String(src[field]).trim()) return;
     sets.forEach((s, k) => {
-      if (k <= j || s.warm || s.done || s.wm) return;
-      s.w = src.w;
-      const el = document.querySelector(`.ex[data-i="${i}"] .set[data-j="${k}"] input.w`);
-      if (el) el.value = src.w;
+      if (k <= j || s.warm || s.done) return;
+      s[field] = src[field];
+      const el = document.querySelector(`.set[data-i="${i}"][data-j="${k}"] input.${field}`);
+      if (el) el.value = src[field];
+    });
+  }
+  /* ── supersets: linked pairs share a letter; they render as one card and alternate set by set ── */
+  const workIdx = (en) => en.sets.map((x, j) => (x.warm ? -1 : j)).filter((j) => j >= 0);
+  const partnerOf = (w, en) => (en.ss ? w.exercises.find((x) => x !== en && x.ss === en.ss) : null);
+  function ssLink(i, k) {
+    const arr = state.current.exercises, a = arr[i], b = arr[k];
+    if (!a || !b || a === b || a.ss || b.ss) return;
+    const used = new Set(arr.map((x) => x.ss).filter(Boolean));
+    let L = 'A'; while (used.has(L)) L = String.fromCharCode(L.charCodeAt(0) + 1);
+    arr.splice(k, 1); arr.splice(arr.indexOf(a) + 1, 0, b);
+    a.ss = b.ss = L; a.ssPos = 1; b.ssPos = 2;
+  }
+  function ssUnlink(en) {
+    const p = partnerOf(state.current, en);
+    [en, p].forEach((x) => { if (x) { delete x.ss; delete x.ssPos; } });
+  }
+  /** Highlight the next set to do in every superset card (A then B, round by round). */
+  function markNext() {
+    $$('.set.next').forEach((n) => n.classList.remove('next'));
+    $$('.ssgroup').forEach((card) => {
+      const row = Array.from(card.querySelectorAll('.round .set')).find((r) => !r.classList.contains('done'));
+      if (row) row.classList.add('next');
     });
   }
 
@@ -807,7 +890,8 @@
     const d = t.dataset;
     const w = state.current;
     const entryEl = t.closest('.ex');
-    const i = entryEl ? +entryEl.dataset.i : null;
+    const rowEl = t.closest('.set');
+    const i = d.xi !== undefined ? +d.xi : rowEl ? +rowEl.dataset.i : entryEl ? +entryEl.dataset.i : null;
     switch (act) {
       case 'nav': ui.tab = d.tab; closeSheet(); render(); window.scrollTo(0, 0); break;
 
@@ -857,15 +941,23 @@
         if (s.done) {
           if (!w.startedAt) w.startedAt = Date.now();
           if (!String(s.r).trim()) s.r = String(parseInt(w.exercises[i].target.reps, 10) || 10);
-          propagateWeight(i, j);
-          const en = w.exercises[i], partner = en.ss ? w.exercises.find((x, k) => k !== i && x.ss === en.ss) : null;
-          if (partner && en.ssPos === 1 && partner.sets[j] && !partner.sets[j].done) toast(`Superset — now ${EX_BY_ID[partner.exId].name}`);
-          else startRest(s.warm ? 40 : en.target.rest);
+          propagate(i, j, 'w'); propagate(i, j, 'r');
+          const en = w.exercises[i], partner = partnerOf(w, en);
+          let moveOn = false;
+          if (partner && !s.warm) {
+            const ord = workIdx(en).indexOf(j), pj = workIdx(partner)[ord], ps = pj === undefined ? null : partner.sets[pj];
+            if (ps && !ps.done) {
+              moveOn = true; toast(`Superset — now ${EX_BY_ID[partner.exId].name}`);
+              const row = document.querySelector(`.set[data-i="${w.exercises.indexOf(partner)}"][data-j="${pj}"]`);
+              if (row) setTimeout(() => row.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60);
+            }
+          }
+          if (!moveOn) startRest(s.warm ? 40 : en.target.rest);
         }
         save();
         t.closest('.set').classList.toggle('done', s.done);
         t.setAttribute('aria-pressed', s.done);
-        updateProgressDom();
+        updateProgressDom(); markNext();
         if (s.done && w.exercises[i].sets.every((x) => x.done)) toast('Exercise complete ✔');
         // the "Regenerate" button should vanish once a set is done
         if (s.done) render();
@@ -882,12 +974,25 @@
         break;
       }
       case 'remove-ex':
+        ssUnlink(w.exercises[i]);
         w.exercises.splice(i, 1);
         if (!w.exercises.length) state.current = null;
         save(); render(); break;
       case 'swap':
         if (w.exercises[i].sets.some((x) => x.done) && !confirm('This exercise has logged sets. Swapping it will clear them. Continue?')) break;
         sheetSwap(i); break;
+      case 'ss-open': sheetSuperset(i); break;
+      case 'pick-ss': ssLink(ui.ssIndex, +d.k); save(); closeSheet(); render(); toast('Superset linked — alternate A, then B'); break;
+      case 'ss-unlink': ssUnlink(w.exercises[i]); save(); render(); toast('Superset unlinked'); break;
+      case 'ss-add': case 'ss-rem': {
+        const en = w.exercises[i], pa = partnerOf(w, en);
+        [en, pa].forEach((x) => {
+          if (!x) return;
+          if (act === 'ss-add') { const prev = x.sets[x.sets.length - 1]; x.sets.push({ w: prev ? prev.w : '', r: prev ? prev.r : '10', done: false }); }
+          else if (x.sets.length > 1) x.sets.pop();
+        });
+        save(); render(); break;
+      }
       case 'swap-random': {
         const btns = $$('#sheetBody [data-act="pick-swap"]');
         if (btns.length) btns[Math.floor(Math.random() * btns.length)].click();
@@ -895,7 +1000,7 @@
       }
       case 'pick-swap': {
         const ex = EX_BY_ID[d.id];
-        w.exercises[ui.swapIndex] = makeEntry(ex, w.goal);
+        { const old = w.exercises[ui.swapIndex], ne = makeEntry(ex, w.goal); if (old.ss) { ne.ss = old.ss; ne.ssPos = old.ssPos; } w.exercises[ui.swapIndex] = ne; }
         save(); closeSheet(); render(); break;
       }
       case 'cx-new': cxOpen({ name: d.name || '', add: !!d.add }, false); break;
@@ -1006,7 +1111,7 @@
       const row = t.closest('.set');
       const s = state.current.exercises[+row.dataset.i].sets[+row.dataset.j];
       s[t.dataset.field] = t.value;
-      if (t.dataset.field === 'w') { s.wm = true; propagateWeight(+row.dataset.i, +row.dataset.j); }
+      if (t.dataset.field === 'w' || t.dataset.field === 'r') propagate(+row.dataset.i, +row.dataset.j, t.dataset.field);
       save();
     } else if (ui.cdraft && t.id === 'cxName') {
       ui.cdraft.name = t.value; cxHint();

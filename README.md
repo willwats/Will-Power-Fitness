@@ -114,3 +114,7 @@ Library → **Create your own exercise** (or "Can't find it?" in the Add-exercis
 
 ## Layout notes (usability pass)
 Train now leads with the muscle picker and a sticky **Build workout** button; goal, experience, warm-ups, supersets, exercise count and the sport picker sit in a collapsible **Workout options** row that summarizes your choices. Today's plan, calories, profile prompt follow under **Your day**. The last tab is now **Me** (profile, gear, settings, backup). Finish workout stays pinned at the bottom once you've started.
+
+## Carry-over and supersets
+- Change a set's **weight or reps** and every remaining set of that exercise follows (sets you've already ticked are left alone).
+- **Supersets:** tap **🔗 Superset** on any exercise, pick its partner, and the pair becomes one card that alternates A1 → B1 → A2 → B2. No rest between A and B; the rest timer runs after each round, and the next set is highlighted and scrolled into view. **+ Round / − Round** add or remove a set for both; **Unlink** splits them. The builder's auto-pair option still works.

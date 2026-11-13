@@ -393,3 +393,22 @@ h2.section { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase;
 .opts .sport [data-act="sport-build"] { margin-top: 8px; }
 .buildbar { position: sticky; bottom: calc(var(--nav-h) + 8px + env(safe-area-inset-bottom)); z-index: 20; padding: 8px 0 4px; background: linear-gradient(to top, var(--bg) 70%, transparent); }
 .buildbar .primary { box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+
+/* ── superset card ── */
+.ssgroup { border-left: 4px solid var(--accent); }
+.sshd { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.sspair { display: flex; flex-direction: column; gap: 10px; }
+.ssblock { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; padding: 10px; border-radius: 12px; background: var(--card2); }
+.ssblock h3 { margin: 0 0 2px; font-size: 1rem; }
+.ssblock .who { margin: 0 0 2px; display: flex; align-items: center; gap: 6px; }
+.ssblock .who b, .rlab b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: .75rem; }
+.ssblock .blk-actions { margin: 4px 0 0; display: flex; gap: 12px; }
+.ssblock .anim { flex: 0 0 104px; }
+.round { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+.rh { margin: 0 0 4px; font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.rlab { margin: 6px 0 2px; font-size: .85rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.set.next { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 12px; }
+.ssblock { padding: 8px 10px; gap: 8px; }
+.ssblock .anim { flex: 0 0 104px; }
+.ssblock .last { margin: 2px 0; font-size: .78rem; }
+.ssblock .blk-actions { margin-top: 2px; }
