@@ -525,6 +525,7 @@
           <small>${fmtDate(w.date)} · ${esc(w.profileName || '')}${dur ? ' · ' + dur : ''}${w.kcal ? ' · ~' + fmtNum(w.kcal) + ' kcal' : ''}</small></span>
           <span class="vol">${setsOf(w)} sets<small>${fmtNum(volumeOf(w))} ${state.settings.units}</small></span></summary>
         ${w.exercises.map((e) => `<div class="hx"><b>${esc(e.name)}</b><span>${e.sets.filter((s) => !s.warm).map((s) => (e.timed ? `${s.r}s` : `${s.w ? s.w + '×' : ''}${s.r}`)).join(' · ')}</span></div>`).join('')}
+        ${w.sent ? '<span class="badge">In Health</span>' : `<button class="link" data-act="hist-send" data-id="${w.id}">Send to Apple Health</button>`}
         <button class="link danger" data-act="hist-del" data-id="${w.id}">Delete workout</button>
       </details>`; } }))
       .concat(cardio.map((c) => ({ t: c.date, html: () => `
@@ -1138,6 +1139,13 @@
       case 'log-back': sheetPast(); break;
 
       /* history */
+      case 'hist-send': {
+        const x = state.history.find((h) => h.id === d.id); if (!x) break;
+        const end = x.endedAt || x.date + 45 * 60000;
+        x.sent = true; save(); toast('Sending to Apple Health…'); render();
+        location.href = CARDIO.sendToHealthUrl({ type: 'strength', date: x.date, dur: Math.max(60, (end - x.date) / 1000), kcal: x.kcal || 0, dist: 0 }, state.settings.units);
+        break;
+      }
       case 'hist-del':
         if (confirm('Delete this workout from your history?')) {
           state.history = state.history.filter((x) => x.id !== d.id); save(); render();
