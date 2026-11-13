@@ -28,7 +28,7 @@ const WPA = (() => {
 
   /** Front-view pose (for lateral raises etc.): arm angles are measured from straight down, outward positive. */
   function fpose(o) {
-    return { v: 'f', sy: o.sy || 0, hy: o.hy || 0, a: o.a || [0, 0], a2: o.a2 || o.a || [0, 0], g: o.g || 0, g2: o.g2 === undefined ? (o.g || 0) : o.g2 };
+    return { v: 'f', sy: o.sy || 0, hy: o.hy || 0, a: o.a || [0, 0], a2: o.a2 || o.a || [0, 0], g: o.g || 0, g2: o.g2 === undefined ? (o.g || 0) : o.g2, hx: o.hx || 0, f: o.f || null, f2: o.f2 || null };
   }
 
   /** Two-segment IK: returns the middle joint (elbow/knee) and the (possibly clamped) end point. */
@@ -51,7 +51,8 @@ const WPA = (() => {
   function mix(p, q, k) {
     if (p.v === 'f') {
       const l2 = (a, b) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k)];
-      return { v: 'f', sy: lerp(p.sy, q.sy, k), hy: lerp(p.hy, q.hy, k), a: l2(p.a, q.a), a2: l2(p.a2, q.a2), g: lerp(p.g, q.g, k), g2: lerp(p.g2, q.g2, k) };
+      return { v: 'f', sy: lerp(p.sy, q.sy, k), hy: lerp(p.hy, q.hy, k), a: l2(p.a, q.a), a2: l2(p.a2, q.a2), g: lerp(p.g, q.g, k), g2: lerp(p.g2, q.g2, k), hx: lerp(p.hx || 0, q.hx || 0, k),
+        f: p.f && q.f ? l2(p.f, q.f) : (k < 0.5 ? p.f : q.f), f2: p.f2 && q.f2 ? l2(p.f2, q.f2) : (k < 0.5 ? p.f2 : q.f2) };
     }
     return {
       hip: lerp2(p.hip, q.hip, k), t: lerp(p.t, q.t, k), nk: lerp(p.nk, q.nk, k),
@@ -186,21 +187,22 @@ const WPA = (() => {
   }
 
   function drawFront(ref, p) {
-    const hipY = 57 + p.hy, neckY = hipY - 24 + p.sy;
+    const cx = 80 + (p.hx || 0), hipY = 57 + p.hy, neckY = hipY - 24 + p.sy;
     const arm = (sx, a, dir) => {
-      const s0 = [sx, neckY + 3];
+      const s0 = [cx + sx, neckY + 3];
       const j = [s0[0] + dir * UA * Math.sin(rad(a[0])), s0[1] + UA * Math.cos(rad(a[0]))];
       return [s0, j, [j[0] + dir * FA * Math.sin(rad(a[1])), j[1] + FA * Math.cos(rad(a[1]))]];
     };
-    const leg = (x, g, dir) => {
+    const leg = (x, g, dir, foot) => {
+      if (foot) { const r = ik([x, hipY], foot, TH, SH, -dir); return [[x, hipY], r.j, r.e]; }   // foot placed → knee bends outward
       const f = [x + dir * 37 * Math.sin(rad(g)), hipY + 37 * Math.cos(rad(g))];
       return [[x, hipY], [(x + f[0]) / 2 + dir * 0.4, (hipY + f[1]) / 2], f];
     };
-    const ra = arm(89, p.a, 1), la = arm(71, p.a2, -1), rl = leg(84.5, p.g, 1), ll = leg(75.5, p.g2, -1);
-    const G = { hip: [80, hipY], sh: [80, neckY + 3], n: [0, 0], axis: -90, arms: [ra, la], legs: [rl, ll] };
-    setD(ref.tr, blob([[69.5, neckY + 4], [75, neckY + 0.5], [85, neckY + 0.5], [90.5, neckY + 4], [88, neckY + 12], [86, hipY - 4], [86, hipY], [74, hipY], [74, hipY - 4], [72, neckY + 12]]));
-    setC(ref.hp, [80, hipY - 1], 7.2);
-    setD(ref.nk, limb([80, neckY + 1], [80, neckY - 5], 4.4, 3.8, 0));
+    const ra = arm(9, p.a, 1), la = arm(-9, p.a2, -1), rl = leg(cx + 4.5, p.g, 1, p.f), ll = leg(cx - 4.5, p.g2, -1, p.f2);
+    const G = { hip: [cx, hipY], sh: [cx, neckY + 3], n: [0, 0], axis: -90, arms: [ra, la], legs: [rl, ll] };
+    setD(ref.tr, blob([[cx - 10.5, neckY + 4], [cx - 5, neckY + 0.5], [cx + 5, neckY + 0.5], [cx + 10.5, neckY + 4], [cx + 8, neckY + 12], [cx + 6, hipY - 4], [cx + 6, hipY], [cx - 6, hipY], [cx - 6, hipY - 4], [cx - 8, neckY + 12]]));
+    setC(ref.hp, [cx, hipY - 1], 7.2);
+    setD(ref.nk, limb([cx, neckY + 1], [cx, neckY - 5], 4.4, 3.8, 0));
     setD(ref.ar1, limb(ra[0], ra[1], 6.2, 4.8, 1.2)); setD(ref.ar2, limb(ra[1], ra[2], 4.8, 3.4, 0.8)); setC(ref.nh, ra[2], 2.5);
     setD(ref.fa1, limb(la[0], la[1], 6.2, 4.8, 1.2)); setD(ref.fa2, limb(la[1], la[2], 4.8, 3.4, 0.8)); setC(ref.fh, la[2], 2.5);
     setD(ref.lg1, limb(rl[0], rl[1], 9.5, 7.2, 1.6)); setD(ref.lg2, limb(rl[1], rl[2], 7.2, 4.8, 1.2));
@@ -211,12 +213,12 @@ const WPA = (() => {
       el.setAttribute('cx', 0); el.setAttribute('cy', 0); el.setAttribute('rx', 3.6); el.setAttribute('ry', 2.2);
       el.setAttribute('transform', `translate(${f1(l[2][0] + dir * 1.2)} ${f1(l[2][1] - 0.6)})`);
     }
-    head(ref, [80, neckY - 8], [0, 0], [0, -1]);
-    setC(ref.hr, [80, neckY - 9], 5.5); setC(ref.hd, [80, neckY - 7.6], 4.8); setC(ref.ns2, [80, neckY - 7], 0);
+    head(ref, [cx, neckY - 8], [0, 0], [0, -1]);
+    setC(ref.hr, [cx, neckY - 9], 5.5); setC(ref.hd, [cx, neckY - 7.6], 4.8); setC(ref.ns2, [cx, neckY - 7], 0);
     applyHL(ref, G);
     if (ref.held) ref.held.setAttribute('transform', `translate(${f1(ra[2][0])} ${f1(ra[2][1])})`);
     if (ref.rope) { ref.rope.setAttribute('x1', f1(ra[2][0])); ref.rope.setAttribute('y1', f1(ra[2][1])); }
-    return [ra[2], la[2], rl[2], ll[2], ra[0], la[0], [80, neckY - 14], [80, hipY]];
+    return [ra[2], la[2], rl[2], ll[2], ra[0], la[0], [cx, neckY - 14], [cx, hipY]];
   }
 
   function draw(ref, p, tpl) {
@@ -357,6 +359,7 @@ const WPA = (() => {
       const ex = typeof EX_BY_ID !== 'undefined' && EX_BY_ID[el.dataset.ex];
       if (!ex) return;
       const spec = WPA.forExercise(ex);
+      if (el.dataset.view === 'front' && T[spec.tpl] && T[T[spec.tpl].front]) spec.tpl = T[spec.tpl].front;
       el.dataset.on = '1';
       const big = el.classList.contains('big');
       mount(el, spec.tpl, spec.held, `How to do ${ex.name}`, ex.muscle, big ? { ghosts: true, phaseEl: document.getElementById('guidePhase') } : {});
@@ -369,7 +372,15 @@ const WPA = (() => {
     draw(ref, frame(T[name], u), T[name]);
   }
 
-  return { pose, fpose, add, T, S, H, A, G, line, rect, bench, box, bar, wall, mount, hydrate, still, GY, forExercise: null };
+  /** Switch an already-hydrated animation between its side and front views. */
+  function setView(host, view) {
+    const m = host.__wpa; if (m) live.delete(m);
+    host.innerHTML = ''; host.removeAttribute('data-on'); host.dataset.view = view; host.__wpa = null;
+    hydrate(host.parentNode || document);
+    return host.__wpa;
+  }
+
+  return { setView, pose, fpose, add, T, S, H, A, G, line, rect, bench, box, bar, wall, mount, hydrate, still, GY, forExercise: null };
 })();
 
 if (typeof module !== 'undefined') module.exports = WPA;

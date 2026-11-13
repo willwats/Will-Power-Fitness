@@ -645,6 +645,7 @@
         <button class="pill" data-act="g-play" id="gPlay">⏸ Pause</button>
         <div class="seg" role="group" aria-label="Speed"><button data-act="g-speed" data-v="0.5" id="gs-0.5">Slow</button><button data-act="g-speed" data-v="1" id="gs-1" class="on">Normal</button></div>
       </div>
+      ${tpl && tpl.front ? '<div class="gctrl"><div class="seg" role="group" aria-label="View"><button data-act="g-view" data-v="side" class="on">Side view</button><button data-act="g-view" data-v="front">Front view</button></div></div>' : ''}
       ${tpl && !tpl.loop ? '<div class="gctrl two"><button class="pill" data-act="g-seek" data-v="0">① Show start</button><button class="pill" data-act="g-seek" data-v="1">② Show finish</button></div>' : ''}
       <div class="tags"><span>${MUSCLE_NAME[ex.muscle]}${sec.length ? ' + ' + sec.join(', ') : ''}</span><span>${esc(equipLabel(ex))}</span><span>${GUIDE.LEVEL[ex.level]}</span></div>
       <h3>How to do it</h3>
@@ -929,6 +930,7 @@
         break;
       case 'form-guide': sheetGuide(d.ex); break;
       case 'g-play': { const m = guideM(); if (m) { m.playing ? m.pause() : m.play(); t.textContent = m.playing ? '⏸ Pause' : '▶ Play'; } break; }
+      case 'g-view': { const h = $('#guideAnim'); if (h) { const was = guideM(), sp = was ? was.speed : 1; const m = WPA.setView(h, d.v); if (m) m.speed = sp; $$('[data-act="g-view"]').forEach((b) => b.classList.toggle('on', b === t)); const pl = $('#gPlay'); if (pl) pl.textContent = '⏸ Pause'; } break; }
       case 'g-speed': { const m = guideM(); if (m) { m.speed = +d.v; $$('[data-act="g-speed"]').forEach((b) => b.classList.toggle('on', b === t)); } break; }
       case 'g-seek': { const m = guideM(); if (m) { const K = m.tpl.poses.length; m.pause(); m.seek(+d.v ? (K - 1) / (2 * K - 2) : 0); $('#gPlay').textContent = '▶ Play'; } break; }
       case 'start-workout': if (w && !w.startedAt) { w.startedAt = Date.now(); save(); render(); } break;

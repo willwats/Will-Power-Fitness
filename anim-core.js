@@ -146,4 +146,21 @@
       stand({ hand: S(0, 24), foot2: A(98, 80) }),
     ],
   });
+
+  /* ───────── front views (toggle in the form guide) ───────── */
+  const { fpose } = WPA;
+  add('side_lunge_f', {
+    poses: [
+      fpose({ a: [8, 10], a2: [8, 10] }),
+      fpose({ hx: 10, hy: 12, a: [8, 10], a2: [8, 10], f: [103, 94], f2: [59, 94] }),
+    ],
+  });
+  add('abduct_f', { poses: [fpose({}), fpose({ g: 38, g2: 0 })] });
+  add('adduct_f', { poses: [fpose({ g: 30, g2: 0 }), fpose({ g: -14, g2: 0 })] });
+  add('ext_rotation_f', { poses: [fpose({ a: [0, -78], a2: [0, 0] }), fpose({ a: [0, 72], a2: [0, 0] })] });
+  add('leg_adduct_stand', { poses: [stand({ hand: S(0, 24), foot2: A(90, 86) }), stand({ hand: S(0, 24), foot2: A(82, 88) })] });
+  WPA.T.leg_adduct_stand.front = 'adduct_f';
+  WPA.T.side_lunge.front = 'side_lunge_f';
+  WPA.T.leg_abduct_stand.front = 'abduct_f';
+  WPA.T.ext_rotation.front = 'ext_rotation_f';
 })();
