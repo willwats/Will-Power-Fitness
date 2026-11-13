@@ -82,6 +82,9 @@ const CARDIO = (() => {
       key, strengthKcal, cardioKcal, healthKcal, extra,
       total: Math.round(healthKcal + extra),
       steps: h && h.steps ? h.steps : 0,
+      stand: h && h.stand ? h.stand : 0,
+      rest: h && h.rest ? h.rest : 0,
+      exMin: h && h.minutes ? h.minutes : 0,
       minutes: Math.round(cardio.reduce((t, c) => t + c.dur / 60, 0) + strength.reduce((t, w) => t + (w.endedAt && w.date ? (w.endedAt - w.date) / 60000 : 0), 0)),
       sessions: strength.length + cardio.length,
       hasHealth: !!healthKcal,
@@ -114,7 +117,7 @@ const CARDIO = (() => {
     const p = new URLSearchParams(q);
     const day = /^\d{4}-\d{2}-\d{2}/.test(p.get('date') || '') ? p.get('date').slice(0, 10) : dayKey(now);
     const miles = (v, km) => (km ? numOf(km) / 1.609344 : numOf(v));
-    const out = { day, kcal: Math.round(numOf(p.get('kcal'))), steps: Math.round(numOf(p.get('steps'))), minutes: Math.round(numOf(p.get('min'))), miles: miles(p.get('dist'), p.get('distkm')), workouts: [] };
+    const out = { day, kcal: Math.round(numOf(p.get('kcal'))), steps: Math.round(numOf(p.get('steps'))), minutes: Math.round(numOf(p.get('min'))), stand: Math.round(numOf(p.get('stand'))), rest: Math.round(numOf(p.get('rest'))), miles: miles(p.get('dist'), p.get('distkm')), workouts: [] };
     const types = p.getAll('wtype'), mins = p.getAll('wmin'), kc = p.getAll('wkcal'), ds = p.getAll('wdist'), st = p.getAll('wstart');
     const dk = p.getAll('wdistkm');
     for (let i = 0; i < Math.max(types.length, mins.length, kc.length); i++) {
@@ -124,7 +127,7 @@ const CARDIO = (() => {
       if (!Number.isFinite(start)) start = now - dur * 1000;
       out.workouts.push({ type: healthType(types[i]), label: types[i] || '', dur, kcal: Math.round(numOf(kc[i])), miles: miles(ds[i], dk[i]), start });
     }
-    if (!out.kcal && !out.steps && !out.minutes && !out.workouts.length) return null;
+    if (!out.kcal && !out.steps && !out.minutes && !out.stand && !out.rest && !out.workouts.length) return null;
     return out;
   }
 
@@ -136,6 +139,8 @@ const CARDIO = (() => {
     if (parsed.kcal) h.kcal = parsed.kcal;               // latest total for the day wins (it's a running total)
     if (parsed.steps) h.steps = parsed.steps;
     if (parsed.minutes) h.minutes = parsed.minutes;
+    if (parsed.stand) h.stand = parsed.stand;
+    if (parsed.rest) h.rest = parsed.rest;
     if (parsed.miles) h.miles = parsed.miles;
     h.syncedAt = now;
     state.healthSyncedAt = now;

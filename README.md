@@ -51,6 +51,7 @@ Web apps can't read Apple Health directly, so the app uses iOS Shortcuts as the 
 
 - **Sync in:** a Shortcut named `Will Power Sync` reads today's Active Energy, Steps (and optionally Workouts), and copies text like `#health&kcal=512&steps=8423&wtype=Walking&wmin=32&wkcal=178&wdist=1.8` to the clipboard. Tap **Sync Apple Health**, then **Paste from clipboard**. Opening a link ending in that `#health&…` text also imports it.
 - **Send out:** a Shortcut named `Will Power Log Workout` receives JSON (`type, minutes, kcal, miles, start, end`) and runs **Log Workout**. The **Send to Health** button on a cardio session, and **Send to Apple Health** on a strength workout in History, calls it.
+- **Activity rings:** also append `&min=` (Exercise minutes), `&stand=` (Stand hours) and `&rest=` (Resting Energy kcal). The Cardio tab then draws Move/Exercise/Stand rings (goals editable, default 500/30/12) and shows total calories including resting.
 - **Daily total** = Apple Health calories + sessions logged in the app that weren't sent to Health (no double counting).
 - **Limits:** this is a manual hand-off, not background sync (that needs a native iOS app). iPhone suspends web apps when the screen locks, so the live GPS tracker works best with the screen on.
 

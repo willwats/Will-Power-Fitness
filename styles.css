@@ -420,3 +420,11 @@ h2.section { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase;
 .mprow { display: grid; grid-template-columns: 52px 1fr 1fr; gap: 8px; align-items: center; margin: 8px 0; }
 .mprow input { width: 100%; }
 .mprow input:only-of-type { grid-column: 2 / 4; }
+
+.rings { display: flex; align-items: center; gap: 16px; margin: 12px 0 4px; }
+.rings svg { width: 104px; height: 104px; flex: 0 0 auto; }
+.rings ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rings li { border-left: 4px solid var(--c); padding-left: 8px; display: flex; flex-direction: column; line-height: 1.15; }
+.rings li b { font-size: 1.05rem; }
+.rings li b small { font-weight: 600; color: var(--muted); margin-left: 2px; }
+.rings li span { color: var(--muted); font-size: .8rem; }

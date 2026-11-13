@@ -168,6 +168,7 @@ const WPC = (ctx) => {
         <li>Add <b>Copy to Clipboard</b>. Allow Health access when asked.</li>
       </ol>
       <p class="muted small"><b>Walks, runs &amp; other workouts:</b> add <b>Find Health Samples</b> (Type <i>Workouts</i>, today) and, for each one, append <code>&amp;wtype=[Workout Type]&amp;wmin=[Duration in minutes]&amp;wkcal=[Active Energy]&amp;wdist=[Distance in miles]</code> to the text. They then show up in your cardio list. Even without this step, a walk your Watch or phone records is already inside the day’s calorie total.</p>
+      <p class="muted small"><b>Activity rings:</b> add more <b>Find Health Samples</b> for today, each followed by <b>Calculate Statistics → Sum</b>: <i>Exercise Minutes</i>, <i>Apple Stand Hours</i> and <i>Resting Energy</i> (unit kcal). Append <code>&amp;min=[exercise]&amp;stand=[stand]&amp;rest=[rest]</code> to the Text. The Cardio tab then draws your Move, Exercise and Stand rings and the total including resting calories.</p>
       <h3>2 · Sync</h3>
       <p>Tap <b>Sync Apple Health</b> on the Cardio tab. The Shortcut runs and copies your numbers; switch back here and tap <b>Paste from clipboard</b>. Do this whenever you want your total updated.</p>
       <p class="muted small">Prefer one tap? End the Shortcut with <b>Open URL</b> → <code>${esc(url)}#health&amp;kcal=[kcal]&amp;steps=[steps]</code>. That opens in Safari, which keeps its own copy of your data separate from the home-screen app, so use it only if you use the app in Safari.</p>
@@ -212,6 +213,27 @@ const WPC = (ctx) => {
     </button>`;
   }
 
+  /** Apple-style activity rings: Move (kcal), Exercise (min), Stand (hours). */
+  function ringsHtml(d) {
+    const g = Object.assign({ move: 500, ex: 30, stand: 12 }, S().settings.ringGoals || {});
+    const exMin = d.exMin || d.minutes;
+    const rings = [
+      { label: 'Move', val: d.total, goal: g.move, unit: 'kcal', col: '#fa114f' },
+      { label: 'Exercise', val: exMin, goal: g.ex, unit: 'min', col: '#92e82a' },
+      { label: 'Stand', val: d.stand, goal: g.stand, unit: 'hrs', col: '#1eeaef' },
+    ];
+    const svg = rings.map((r, i) => {
+      const rad = 44 - i * 13, len = 2 * Math.PI * rad, pct = Math.min(1, r.goal ? r.val / r.goal : 0);
+      return `<circle cx="50" cy="50" r="${rad}" fill="none" stroke="${r.col}" stroke-opacity=".2" stroke-width="9"/>
+        <circle cx="50" cy="50" r="${rad}" fill="none" stroke="${r.col}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${(len * pct).toFixed(1)} ${len.toFixed(1)}" transform="rotate(-90 50 50)"/>`;
+    }).join('');
+    return `<div class="rings">
+      <svg viewBox="0 0 100 100" role="img" aria-label="Activity rings: ${rings.map((r) => `${r.label} ${fmtNum(r.val)} of ${r.goal} ${r.unit}`).join(', ')}">${svg}</svg>
+      <ul>${rings.map((r) => `<li style="--c:${r.col}"><b>${fmtNum(r.val)}<small>/${r.goal} ${r.unit}</small></b><span>${r.label}</span></li>`).join('')}</ul>
+    </div>
+    <button class="link" data-act="ring-goals">Edit ring goals</button>`;
+  }
+
   function todayCard() {
     const d = CARDIO.dailyTotals(S(), todayKey());
     const parts = [];
@@ -221,9 +243,11 @@ const WPC = (ctx) => {
       <small>Calories burned today</small>
       <div class="big"><b>${fmtNum(d.total)}</b><i>kcal</i></div>
       <p class="muted small">${parts.length ? parts.join(' + ') : 'Nothing yet — sync Apple Health or start a session.'}</p>
+      ${d.rest ? `<p class="muted small">Total burned incl. resting: <b>${fmtNum(d.total + d.rest)} kcal</b> (${fmtNum(d.total)} active + ${fmtNum(d.rest)} resting)</p>` : ''}
+      ${ringsHtml(d)}
       <div class="row gap wrap stats-line">
         <span><b>${d.steps ? fmtNum(d.steps) : '–'}</b> steps</span>
-        <span><b>${d.minutes}</b> active min</span>
+        <span><b>${d.exMin || d.minutes}</b> active min</span>
         <span><b>${d.sessions}</b> session${d.sessions === 1 ? '' : 's'}</span>
       </div>
       <p class="muted small">${syncNote(d)}</p>
@@ -344,6 +368,12 @@ const WPC = (ctx) => {
         return true;
       case 'cd-manual': ui.cdraft = { type: ui.ctype, min: 30, dist: 0, kcal: 0, kedit: false, live: false }; ui.cdraft.kcal = estimate(ui.cdraft); sheetLog(); return true;
       case 'cd-save': saveLog(); return true;
+      case 'ring-goals': {
+        const g = Object.assign({ move: 500, ex: 30, stand: 12 }, S().settings.ringGoals || {});
+        const v = prompt('Ring goals: Move kcal, Exercise min, Stand hours', `${g.move}, ${g.ex}, ${g.stand}`);
+        if (v) { const [m, e, s] = v.split(/[ ,]+/).map(Number); if (m > 0 && e > 0 && s > 0) { S().settings.ringGoals = { move: m, ex: e, stand: s }; ctx.save(); ctx.render(); } else toast('Enter three numbers, e.g. 500, 30, 12'); }
+        return true;
+      }
       case 'cd-del':
         if (confirm('Delete this entry?')) { S().cardio = S().cardio.filter((c) => c.id !== t.dataset.id); ctx.save(); ctx.render(); }
         return true;
