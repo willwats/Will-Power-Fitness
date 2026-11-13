@@ -36,6 +36,7 @@ const EQUIPMENT_GROUPS = [
     { id: 'box', name: 'Plyo box / step' },
   ]},
   { name: 'Machines & cables', items: [
+    { id: 'functional_trainer', name: 'TAG Functional Trainer (dual cable + pull-up bar)' },
     { id: 'cable', name: 'Cable machine' },
     { id: 'lat_pulldown', name: 'Lat pulldown' },
     { id: 'seated_row', name: 'Seated row machine' },
@@ -317,7 +318,9 @@ const EQUIP_NAME = {};
 EQUIPMENT_GROUPS.forEach((g) => g.items.forEach((i) => { EQUIP_NAME[i.id] = i.name; }));
 const ALL_EQUIPMENT = Object.keys(EQUIP_NAME);
 
+const IMPLIES = { functional_trainer: ['cable', 'pullup_bar'] };   // owning the trainer covers its cables and bar
 function isAvailable(ex, owned) {
+  owned = owned.reduce((a, id) => a.concat(id, IMPLIES[id] || []), []);
   return ex.equip.every((req) => req.split('|').some((r) => owned.includes(r)));
 }
 

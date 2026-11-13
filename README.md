@@ -10,7 +10,7 @@ No account, no backend, no build step — it's a static web app that runs entire
 - **Focus areas** — after picking a body part, narrow it: Abs → upper / middle / lower / obliques / deep core, Chest → upper / mid / lower, Shoulders → front / side / rear, Back → lats / upper back / lower back. The workout then uses exercises for that region.
 - **Start button** — hit ▶ Start workout when you begin; the clock runs from then (logging a set also starts it).
 - **Equipment profiles** — create as many as you want (e.g. *Gym*, *Home – Upstairs*). Each profile is a checklist of gear; workouts only ever use exercises you can do with the active profile.
-- **279 exercises** with form cues, from bodyweight to full gym, tagged by muscle, equipment, difficulty and compound/isolation.
+- **318 exercises** with form cues, from bodyweight to full gym, tagged by muscle, equipment, difficulty and compound/isolation.
 - **Workout generator** — splits the exercise budget across your target muscles, leads with compound lifts, finishes with isolation/core, and avoids repeating what you did in your last few workouts. Choose goal (Strength / Muscle / Endurance), experience level and number of exercises.
 - **Animated demos** — every exercise has a looping animation of an athlete (shorts, shoes, the weight or cable it uses) showing the movement, with the muscle you're training glowing. On workout cards and in the library.
 - **Form guide** — tap any exercise animation for a large view with slow motion, pause, numbered start/finish ghost poses, plain-language steps and form tips. Animations zoom in on the movement.
@@ -111,6 +111,9 @@ Library → **Create your own exercise** (or "Can't find it?" in the Add-exercis
 
 ## Extra exercises
 `exercises-more.js` adds 107 variations (names from the public StrengthLog exercise directory, with form cues written for this app) — landmine presses, preacher curls, T-bar rows, box squats, Copenhagen planks and more. Each borrows the animation of the closest built-in move. Not included: neck work, Olympic lifts, muscle-ups and machines the app has no gear option for.
+
+## TAG Functional Trainer and animation fixes
+Pick **TAG Functional Trainer (dual cable + pull-up bar)** under Machines & cables (or the "TAG Functional Trainer" preset when editing a profile). It counts as a cable machine plus a pull-up bar, and unlocks 40 extra cable and pull-up-bar moves (single-arm presses and rows, half-kneeling chops and presses, ankle-strap hip work, Pallof variations, pull-up grips). New hand-drawn animations replace borrowed ones for side planks, kneeling push-ups, side and curtsy lunges, clamshells, shoulder rotations and standing hip flexion/abduction.
 
 ## Layout notes (usability pass)
 Train now leads with the muscle picker and a sticky **Build workout** button; goal, experience, warm-ups, supersets, exercise count and the sport picker sit in a collapsible **Workout options** row that summarizes your choices. Today's plan, calories, profile prompt follow under **Your day**. The last tab is now **Me** (profile, gear, settings, backup). Finish workout stays pinned at the bottom once you've started.

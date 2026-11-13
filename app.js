@@ -37,6 +37,7 @@
     ['gym', 'Full gym', () => [...ALL_EQUIPMENT]],
     ['home', 'Home: DB + bench + bands', () => ['dumbbell', 'bench', 'bands']],
     ['db', 'Dumbbells only', () => ['dumbbell']],
+    ['tag', 'TAG Functional Trainer', () => ['functional_trainer']],
     ['bw', 'Bodyweight only', () => []],
   ];
 

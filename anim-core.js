@@ -98,4 +98,52 @@
   add('ball_slam', {
     poses: [stand({ hand: S(3, -25) }), pose({ hip: [70, 60], t: 70, foot: G(76), hand: A(98, 88) })],
   });
+
+  /* ───────── accuracy pass: movements that used to borrow the wrong picture ───────── */
+  add('side_plank', {                                   // forearm side plank with a hip dip
+    poses: [
+      WPA.planked(40, 94, 78, { hand: A(100, 92) }),
+      WPA.planked(40, 94, 84, { hand: A(100, 92) }),
+    ],
+  });
+  const KB = -1;
+  const kneel = (shY) => { const b = WPA.incl(70, 94, shY); return pose({ hip: b.hip, t: b.t, foot: A(b.hip[0] - 30, 92), hand: A(100, 94), kb: KB }); };
+  add('kneel_pushup', { poses: [kneel(72), kneel(86)] });   // knees down, body straight from knees to head
+  add('side_lunge', {                                   // sit back over one leg, other leg straight out
+    poses: [
+      stand({ hand: S(12, 4) }),
+      pose({ hip: [66, 70], t: 35, foot: G(70), foot2: G(104), hand: S(12, 4) }),
+    ],
+  });
+  add('curtsy', {                                       // back leg sweeps behind and across
+    poses: [
+      stand({ hand: S(0, 24) }),
+      pose({ hip: [74, 71], t: 12, foot: G(82), foot2: A(56, 91), hand: S(0, 24) }),
+    ],
+  });
+  const lie = (o) => pose({ hip: [64, 84], t: 90, hand: S(0, 14), ...o });
+  add('clamshell', {                                    // side-lying, knees bent, top knee opens
+    poses: [
+      lie({ foot: A(40, 88), foot2: A(40, 88) }),
+      lie({ foot: A(40, 88), foot2: A(44, 72) }),
+    ],
+  });
+  add('ext_rotation', {                                 // elbow pinned, forearm rotates outward
+    poses: [
+      pose({ hip: [80, 57], t: 0, foot: G(80), hand: S(2, 17) }),
+      pose({ hip: [80, 57], t: 0, foot: G(80), hand: S(16, 15) }),
+    ],
+  });
+  add('leg_flex_stand', {                               // standing hip flexion against an ankle strap
+    poses: [
+      stand({ hand: S(0, 24), foot2: G(80) }),
+      stand({ hand: S(0, 24), foot2: A(104, 66) }),
+    ],
+  });
+  add('leg_abduct_stand', {                             // standing hip abduction (leg lifts away from the body)
+    poses: [
+      stand({ hand: S(0, 24), foot2: G(84) }),
+      stand({ hand: S(0, 24), foot2: A(98, 80) }),
+    ],
+  });
 })();
