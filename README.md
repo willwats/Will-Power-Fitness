@@ -115,6 +115,9 @@ Library → **Create your own exercise** (or "Can't find it?" in the Add-exercis
 ## TAG Functional Trainer and animation fixes
 Pick **TAG Functional Trainer (dual cable + pull-up bar)** under Machines & cables (or the "TAG Functional Trainer" preset when editing a profile). It counts as a cable machine plus a pull-up bar, and unlocks 40 extra cable and pull-up-bar moves (single-arm presses and rows, half-kneeling chops and presses, ankle-strap hip work, Pallof variations, pull-up grips). Moves like side lunge, hip abduction/adduction and shoulder rotation also have a **Front view** toggle in the form guide (the engine now supports bending legs and sideways body shift in front view). New hand-drawn animations replace borrowed ones for side planks, kneeling push-ups, side and curtsy lunges, clamshells, shoulder rotations and standing hip flexion/abduction.
 
+## Log past workouts and favorites
+History → **＋ Log a workout I did** adds anything that never made it into the app, on any earlier day: cardio (run, walk, bike…) or a strength session (pick exercises, enter sets, reps and weight). Logged days count in your history, progress and personal records. In the Library (and the Add-exercise picker), tap ☆ to favorite an exercise; the **★ Favorites** filter lists them, favorites sort first in pickers, and generated workouts lean slightly toward them.
+
 ## Layout notes (usability pass)
 Train now leads with the muscle picker and a sticky **Build workout** button; goal, experience, warm-ups, supersets, exercise count and the sport picker sit in a collapsible **Workout options** row that summarizes your choices. Today's plan, calories, profile prompt follow under **Your day**. The last tab is now **Me** (profile, gear, settings, backup). Finish workout stays pinned at the bottom once you've started.
 

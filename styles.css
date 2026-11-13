@@ -229,7 +229,7 @@ legend { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; co
 @media (min-width: 720px) { .ex header .anim { width: 200px; } }
 
 /* ───────── cardio & calories ───────── */
-.field input, .field select, textarea {
+.field input, .field select, textarea, .mprow input {
   width: 100%; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; color: var(--text); font: inherit; font-size: 1rem;
 }
 textarea { resize: vertical; }
@@ -412,3 +412,11 @@ h2.section { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase;
 .ssblock .anim { flex: 0 0 104px; }
 .ssblock .last { margin: 2px 0; font-size: .78rem; }
 .ssblock .blk-actions { margin-top: 2px; }
+
+.star { margin-left: auto; font-size: 1.35rem; line-height: 1; padding: 6px 8px; color: var(--muted); border-radius: 10px; }
+.star.on { color: #f5b301; }
+.lib summary .star { flex: 0 0 auto; }
+.mp { margin-bottom: 10px; }
+.mprow { display: grid; grid-template-columns: 52px 1fr 1fr; gap: 8px; align-items: center; margin: 8px 0; }
+.mprow input { width: 100%; }
+.mprow input:only-of-type { grid-column: 2 / 4; }

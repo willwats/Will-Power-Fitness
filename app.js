@@ -63,6 +63,7 @@
       measures: [],
       intake: {},
       custom: [],
+      favs: [],
     };
   }
   function load() {
@@ -77,6 +78,8 @@
   }
   let state = load();
   if (!Array.isArray(state.custom)) state.custom = [];
+  if (!Array.isArray(state.favs)) state.favs = [];
+  const isFav = (id) => state.favs.includes(id);
   CUSTOM.sync(state.custom, EXERCISES, EX_BY_ID);
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage full / blocked */ } };
 
@@ -222,7 +225,7 @@
         if (!cands.length) break;
         let best = null, bs = -Infinity;
         for (const e of cands) {
-          let s = Math.random() - penalty(e) + SPORT.pickBonus(sport, e);
+          let s = Math.random() - penalty(e) + SPORT.pickBonus(sport, e) + (isFav(e.id) ? 0.8 : 0);
           if (k === 0 && e.compound) s += 1.2;
           if (k > 0 && !e.compound) s += 0.6;
           if (usedEquip.has(e.equip.join('+') || 'bw')) s -= 0.7;
@@ -461,13 +464,14 @@
     const owned = profile().equipment;
     const q = ui.libSearch.trim().toLowerCase();
     const list = EXERCISES.filter((e) =>
-      (ui.libMuscle === 'all' || e.muscle === ui.libMuscle) &&
+      (ui.libMuscle === 'all' || (ui.libMuscle === 'fav' ? isFav(e.id) : e.muscle === ui.libMuscle)) &&
       (!ui.libMine || isAvailable(e, owned)) &&
       (!q || CUSTOM.matches(`${e.name} ${MUSCLE_NAME[e.muscle]}`, q)));
+    if (!list.length && ui.libMuscle === 'fav' && !q) return '<p class="empty">No favorites yet. Tap the ☆ beside any exercise to save it here.</p>';
     if (!list.length) return `<p class="empty">No exercises match. Try turning off “My equipment only”, or <button class="link" data-act="cx-new" data-name="${esc(ui.libSearch.trim())}">create “${esc(ui.libSearch.trim() || 'your own')}”</button>.</p>`;
     return list.map((e) => `
       <details class="lib">
-        <summary><span><b>${esc(e.name)}</b><small>${MUSCLE_NAME[e.muscle]} · ${esc(equipLabel(e))}</small></span>${isAvailable(e, owned) ? '' : '<em class="needgear">needs gear</em>'}</summary>
+        <summary><span><b>${esc(e.name)}</b><small>${MUSCLE_NAME[e.muscle]} · ${esc(equipLabel(e))}</small></span>${isAvailable(e, owned) ? '' : '<em class="needgear">needs gear</em>'}<button class="star ${isFav(e.id) ? 'on' : ''}" data-act="fav" data-id="${e.id}" aria-pressed="${isFav(e.id)}" aria-label="Favorite ${esc(e.name)}">${isFav(e.id) ? '★' : '☆'}</button></summary>
         <div class="anim" data-ex="${e.id}" data-act="form-guide" role="button" tabindex="0" aria-label="Open form guide for ${esc(e.name)}"></div>
         <p>${esc(e.cue)}</p>
         <p class="tags">${e.custom ? '<span class="cust">Custom</span>' : ''}<span>${LEVELS[e.level]}</span>${e.compound ? '<span>Compound</span>' : '<span>Isolation</span>'}${e.secondary.map((s) => `<span>+ ${MUSCLE_NAME[s]}</span>`).join('')}</p>
@@ -476,7 +480,7 @@
   }
 
   function viewLibrary() {
-    const chips = [['all', 'All'], ...MUSCLES.map((m) => [m.id, m.name])]
+    const chips = [['all', 'All'], ['fav', `★ Favorites${state.favs.length ? ' (' + state.favs.length + ')' : ''}`], ...MUSCLES.map((m) => [m.id, m.name])]
       .map(([id, l]) => `<button class="pill ${ui.libMuscle === id ? 'on' : ''}" data-act="lib-muscle" data-m="${id}">${l}</button>`).join('');
     return `
       <section class="card">
@@ -491,7 +495,7 @@
 
   function viewHistory() {
     if (ui.histMode === 'body') return T.bodyView();
-    return T.histSwitch() + viewWorkoutHistory();
+    return T.histSwitch() + '<button class="pill wide" data-act="log-open">＋ Log a workout I did (earlier or not in the app)</button>' + viewWorkoutHistory();
   }
 
   function viewWorkoutHistory() {
@@ -528,6 +532,7 @@
         <span><b>${esc(CARDIO.TYPE_NAME[c.type] || 'Cardio')}</b>${c.source === 'health' ? ' <span class="badge">Apple Health</span>' : ''}
           <small>${fmtDate(c.date)} · ${fmtClock(c.dur)}${c.dist ? ` · ${c.dist} ${CARDIO.distUnit(state.settings.units)}` : ''}</small></span>
         <span class="vol">${fmtNum(c.kcal || 0)}<small>kcal</small></span>
+        <button class="link danger" data-act="cd-del" data-id="${c.id}">Delete</button>
       </div>` })))
       .sort((a, b) => b.t - a.t);
     return stats + progCard + items.map((x) => x.html()).join('');
@@ -629,7 +634,7 @@
     if (!exercises.length) return '<p class="empty">Nothing available with this profile’s equipment.</p>';
     return exercises.map((e) => `
       <button class="pick" data-act="${act}" data-id="${e.id}" ${extra}>
-        <b>${esc(e.name)}</b><small>${MUSCLE_NAME[e.muscle]} · ${esc(equipLabel(e))} · ${LEVELS[e.level]}</small>
+        <b>${isFav(e.id) ? '★ ' : ''}${esc(e.name)}</b><small>${MUSCLE_NAME[e.muscle]} · ${esc(equipLabel(e))} · ${LEVELS[e.level]}</small>
       </button>`).join('');
   }
 
@@ -729,11 +734,78 @@
     const inUse = new Set(w.exercises.map((e) => e.exId));
     const q = ui.addSearch.trim().toLowerCase();
     const list = EXERCISES.filter((e) => isAvailable(e, owned) && !inUse.has(e.id)
-      && (ui.addMuscle === 'all' || (ui.addMuscle === 'workout' ? w.muscles.includes(e.muscle) : e.muscle === ui.addMuscle))
-      && (!q || CUSTOM.matches(`${e.name} ${MUSCLE_NAME[e.muscle]}`, q)));
-    const chips = [['workout', 'This workout'], ['all', 'All'], ...MUSCLES.map((m) => [m.id, m.name])]
+      && (ui.addMuscle === 'all' || (ui.addMuscle === 'workout' ? w.muscles.includes(e.muscle) : ui.addMuscle === 'fav' ? isFav(e.id) : e.muscle === ui.addMuscle))
+      && (!q || CUSTOM.matches(`${e.name} ${MUSCLE_NAME[e.muscle]}`, q)))
+      .sort((x, y) => isFav(y.id) - isFav(x.id));
+    const chips = [['workout', 'This workout'], ['all', 'All'], ['fav', '★ Favorites'], ...MUSCLES.map((m) => [m.id, m.name])]
       .map(([id, l]) => `<button class="pill ${ui.addMuscle === id ? 'on' : ''}" data-act="add-filter" data-m="${id}">${l}</button>`).join('');
     openSheet('Add exercise', `<input type="search" id="addSearch" class="search" placeholder="Search" value="${esc(ui.addSearch)}"><div class="pills scroll">${chips}</div><div id="addList">${entryPickerList(list, 'pick-add')}</div><button class="pill wide" data-act="cx-new" data-add="1" data-name="${esc(ui.addSearch.trim())}">＋ Can’t find it? Create your own${ui.addSearch.trim() ? ': “' + esc(ui.addSearch.trim()) + '”' : ''}</button>`);
+  }
+
+  /* ───────────── log a workout done earlier ───────────── */
+  const dayVal = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+  function sheetLogChoose() {
+    openSheet('Log a workout', `
+      <p class="muted">Add something you did that never made it into the app — today or any earlier day.</p>
+      <button class="pick" data-act="cd-manual"><b>Run, walk, bike or other cardio</b><small>Pick the activity, minutes, distance and the day</small></button>
+      <button class="pick" data-act="log-strength"><b>Strength workout</b><small>Pick exercises and enter sets, reps and weight for any day</small></button>`);
+  }
+
+  function sheetPast() {
+    const md = ui.mdraft; if (!md) return;
+    const today = dayVal(Date.now()), u = state.settings.units;
+    const rows = md.exercises.map((en, mi) => {
+      const ex = EX_BY_ID[en.exId];
+      return `<div class="card mp">
+        <div class="row between"><b>${esc(ex.name)}</b><button class="link danger" data-act="mp-rm" data-mi="${mi}">Remove</button></div>
+        ${en.sets.map((s, mj) => `<div class="mprow"><span class="muted">Set ${mj + 1}</span>
+          ${ex.timed ? '' : `<input type="number" inputmode="decimal" placeholder="${u}" value="${esc(s.w)}" data-mi="${mi}" data-mj="${mj}" data-mf="w" aria-label="Weight">`}
+          <input type="number" inputmode="numeric" placeholder="${ex.timed ? 'seconds' : 'reps'}" value="${esc(s.r)}" data-mi="${mi}" data-mj="${mj}" data-mf="r" aria-label="${ex.timed ? 'Seconds' : 'Reps'}"></div>`).join('')}
+        <div class="row gap"><button class="pill" data-act="mp-set+" data-mi="${mi}">＋ Set</button>${en.sets.length > 1 ? `<button class="pill ghost" data-act="mp-set-" data-mi="${mi}">− Set</button>` : ''}</div>
+      </div>`;
+    }).join('');
+    openSheet('Log strength workout', `
+      <div class="grid2">
+        <div class="field"><label for="mpDate">Day</label><input id="mpDate" type="date" value="${md.date}" max="${today}"></div>
+        <div class="field"><label for="mpMin">Minutes</label><input id="mpMin" type="number" inputmode="numeric" min="5" value="${md.min}"></div>
+      </div>
+      ${rows || '<p class="empty">No exercises yet.</p>'}
+      <button class="pill wide" data-act="mp-pick-open">＋ Add exercise</button>
+      <div class="row gap wrap"><button class="pill on" data-act="mp-save">Save workout</button><button class="pill" data-act="close-sheet">Cancel</button></div>`);
+  }
+
+  function mpList() {
+    const q = (ui.mpSearch || '').trim().toLowerCase();
+    const list = EXERCISES.filter((e) => (ui.mpMuscle === 'all' || (ui.mpMuscle === 'fav' ? isFav(e.id) : e.muscle === ui.mpMuscle))
+      && (!q || CUSTOM.matches(`${e.name} ${MUSCLE_NAME[e.muscle]}`, q))).sort((x, y) => isFav(y.id) - isFav(x.id));
+    return list.length ? list.map((e) => `<button class="pick" data-act="mp-add" data-id="${e.id}"><b>${isFav(e.id) ? '★ ' : ''}${esc(e.name)}</b><small>${MUSCLE_NAME[e.muscle]} · ${esc(equipLabel(e))}</small></button>`).join('') : '<p class="empty">No matches.</p>';
+  }
+  function sheetMPick() {
+    const chips = [['all', 'All'], ['fav', '★ Favorites'], ...MUSCLES.map((m) => [m.id, m.name])]
+      .map(([id, l]) => `<button class="pill ${ui.mpMuscle === id ? 'on' : ''}" data-act="mp-filter" data-m="${id}">${l}</button>`).join('');
+    openSheet('Add exercise', `<input type="search" id="mpSearch" class="search" placeholder="Search" value="${esc(ui.mpSearch || '')}"><div class="pills scroll">${chips}</div><div id="mpList">${mpList()}</div><button class="pill wide" data-act="log-back">Back</button>`);
+  }
+
+  function savePast() {
+    const md = ui.mdraft; if (!md) return;
+    const exercises = md.exercises.map((en) => {
+      const ex = EX_BY_ID[en.exId];
+      return { exId: ex.id, name: ex.name, muscle: ex.muscle, timed: ex.timed,
+        sets: en.sets.filter((s) => num(s.r) > 0).map((s) => ({ w: ex.timed ? 0 : num(s.w), r: num(s.r) })) };
+    }).filter((e) => e.sets.length);
+    if (!exercises.length) { toast('Add at least one set with reps'); return; }
+    const mins = Math.max(5, md.min || 45), now = Date.now();
+    let date = new Date(`${md.date}T12:00:00`).getTime();
+    if (md.date === dayVal(now)) date = now - mins * 60000;
+    const endedAt = date + mins * 60000;
+    const kcal = CARDIO.kcalFor(CARDIO.metFor('strength'), CARDIO.toKg(state.settings.weight || (state.settings.units === 'kg' ? 75 : 165), state.settings.units), mins * 60);
+    const muscles = [...new Set(exercises.map((e) => e.muscle))];
+    const rec = { id: uid(), date, endedAt, kcal, profileId: profile().id, profileName: profile().name, muscles, regions: {}, goal: state.settings.goal, exercises, manual: true };
+    const older = state.history.filter((h) => h.date < date).sort((x, y) => y.date - x.date);   // PRs are judged against what came before that day
+    rec.prs = PROG.newPRs(older, rec, EX_BY_ID);
+    state.history.push(rec); state.history.sort((x, y) => y.date - x.date);
+    ui.mdraft = null; save(); closeSheet(); render(); toast('Workout logged');
   }
 
   function sheetSummary(rec) {
@@ -1038,6 +1110,32 @@
 
       /* library */
       case 'lib-muscle': ui.libMuscle = d.m; render(); break;
+      case 'fav': {
+        const k = state.favs.indexOf(d.id);
+        if (k >= 0) state.favs.splice(k, 1); else state.favs.push(d.id);
+        save();
+        const on = isFav(d.id);
+        t.classList.toggle('on', on); t.textContent = on ? '★' : '☆'; t.setAttribute('aria-pressed', on);
+        if (ui.libMuscle === 'fav' && !on) $('#libList').innerHTML = libItems();
+        const chip = $('[data-act="lib-muscle"][data-m="fav"]'); if (chip) chip.textContent = `★ Favorites${state.favs.length ? ' (' + state.favs.length + ')' : ''}`;
+        break;
+      }
+
+      /* log something done earlier */
+      case 'log-open': sheetLogChoose(); break;
+      case 'log-strength': ui.mdraft = { date: dayVal(Date.now()), min: 45, exercises: [] }; ui.mpMuscle = 'all'; ui.mpSearch = ''; sheetPast(); break;
+      case 'mp-pick-open': ui.mpMuscle = ui.mpMuscle || 'all'; sheetMPick(); break;
+      case 'mp-filter': ui.mpMuscle = d.m; sheetMPick(); break;
+      case 'mp-add': {
+        const ex = EX_BY_ID[d.id], md = ui.mdraft; if (!ex || !md) break;
+        md.exercises.push({ exId: ex.id, sets: [{ w: '', r: '' }] });
+        sheetPast(); break;
+      }
+      case 'mp-set+': { const e = ui.mdraft.exercises[+d.mi], last = e.sets[e.sets.length - 1] || { w: '', r: '' }; e.sets.push({ w: last.w, r: last.r }); sheetPast(); break; }
+      case 'mp-set-': { const e = ui.mdraft.exercises[+d.mi]; if (e.sets.length > 1) e.sets.pop(); sheetPast(); break; }
+      case 'mp-rm': ui.mdraft.exercises.splice(+d.mi, 1); sheetPast(); break;
+      case 'mp-save': savePast(); break;
+      case 'log-back': sheetPast(); break;
 
       /* history */
       case 'hist-del':
@@ -1104,6 +1202,7 @@
     if (!t) { if (ev.target.id === 'sheet') closeSheet(); return; }
     if (t.dataset.tab) return handleAction('nav', t);
     if (t.disabled) return;
+    if (t.dataset.act === 'fav') ev.preventDefault();      // star sits inside a <summary>; don't toggle it
     handleAction(t.dataset.act, t);
   });
 
@@ -1120,6 +1219,12 @@
       ui.cdraft.name = t.value; cxHint();
     } else if (ui.cdraft && t.id === 'cxCue') {
       ui.cdraft.cue = t.value;
+    } else if (ui.mdraft && t.dataset && t.dataset.mf) {
+      ui.mdraft.exercises[+t.dataset.mi].sets[+t.dataset.mj][t.dataset.mf] = t.value;
+    } else if (ui.mdraft && t.id === 'mpMin') {
+      ui.mdraft.min = +t.value;
+    } else if (ui.mdraft && t.id === 'mpSearch') {
+      ui.mpSearch = t.value; const l = $('#mpList'); if (l) l.innerHTML = mpList();
     } else if (t.id === 'libSearch') {
       ui.libSearch = t.value; $('#libList').innerHTML = libItems();
     } else if (t.id === 'addSearch') {
@@ -1139,6 +1244,7 @@
     else if (ui.cdraft && t.id === 'cxLike') ui.cdraft.like = t.value;
     else if (ui.cdraft && t.id === 'cxLoaded') ui.cdraft.loaded = t.checked;
     else if (ui.cdraft && t.id === 'cxTimed') ui.cdraft.timed = t.checked;
+    else if (ui.mdraft && t.id === 'mpDate') ui.mdraft.date = t.value;
     else if (t.id === 'libMine') { ui.libMine = t.checked; $('#libList').innerHTML = libItems(); }
     else if (t.id === 'warmToggle') { state.settings.warmups = t.checked; save(); }
     else if (t.id === 'ssToggle') { state.settings.supersets = t.checked; save(); }
