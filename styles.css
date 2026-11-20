@@ -441,3 +441,7 @@ h2.section { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase;
 .fxhint { margin: 0 6px 8px; font-size: .78rem; color: var(--accent); }
 .set.max input.r { border-color: var(--accent); }
 .ex footer .link.on { color: var(--accent); font-weight: 700; }
+
+.restpick { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--muted); font-weight: 600; }
+.restpick select, .restfield select { padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); color: var(--text); font: inherit; }
+.restfield { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; }

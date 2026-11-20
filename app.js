@@ -139,8 +139,12 @@
     const g = GOALS[goal] || GOALS.hypertrophy;
     return { ...(ex.compound ? g.compound : g.iso) };
   }
+  const REST_CHOICES = [30, 45, 60, 90, 120, 150, 180, 240, 300];
+  const restLabel = (s) => (s < 60 ? `${s}s` : s % 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s / 60} min`);
+  const restSelect = (cur, attrs, autoLabel) => `<select ${attrs} aria-label="Rest between sets">${autoLabel ? `<option value="0" ${!cur ? 'selected' : ''}>${autoLabel}</option>` : ''}${[...new Set([...REST_CHOICES, cur].filter(Boolean))].sort((x, y) => x - y).map((v) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${restLabel(v)}</option>`).join('')}</select>`;
   function makeEntry(ex, goal) {
     const target = prescription(ex, goal);
+    if (state.settings.restSec > 0 && !ex.timed) target.rest = state.settings.restSec;
     const sg = PROG.suggest(ex, target, state.history, state.settings.units, EX_BY_ID);
     const sets = sg.sets.map((s) => ({ w: ex.timed ? '' : s.w, r: s.r, done: false }));
     return { exId: ex.id, target, sets, note: sg.note, nkind: sg.kind };
@@ -319,6 +323,7 @@
         ${sportCard()}
         <div class="field"><label>Goal</label>${seg('goal', Object.entries(GOALS).map(([k, g]) => [k, g.label]))}</div>
         <div class="field"><label>Experience</label>${seg('level', [['beginner', 'Beginner'], ['intermediate', 'Intermediate'], ['advanced', 'Advanced']])}</div>
+        <div class="field restfield"><label for="restDefault">Rest between sets</label>${restSelect(s.restSec || 0, 'id="restDefault"', 'Auto (by goal)')}</div>
         <label class="toggle"><input type="checkbox" id="warmToggle" ${s.warmups ? 'checked' : ''}> <span>Add warm-up sets before heavy lifts</span></label>
         <label class="toggle"><input type="checkbox" id="ssToggle" ${s.supersets ? 'checked' : ''}> <span>Auto-pair into supersets when building (you can also link any two during a workout)</span></label>
         <div class="field row between"><label>Exercises</label>
@@ -377,7 +382,7 @@
         <div class="hd-text"><p class="who"><b>${tag}</b> <span class="muted small">${MUSCLE_NAME[ex.muscle]}</span></p><h3>${esc(ex.name)}</h3>
         <p class="meta">${esc(equipLabel(ex))} · <b>${en.target.sets} × ${esc(en.target.reps)}${ex.timed ? 's' : ''}</b></p>
         <p class="last">${esc(lastText(ex))}</p>${whyHtml(en)}${noteHtml(en)}
-        <p class="blk-actions"><button class="link" data-act="swap" data-xi="${idx}">Swap</button><button class="link danger" data-act="remove-ex" data-xi="${idx}">Remove</button></p></div>
+        <p class="blk-actions"><label class="restpick">Rest ${restSelect(en.target.rest, `class="restsel" data-xi="${idx}"`)}</label><button class="link" data-act="swap" data-xi="${idx}">Swap</button><button class="link danger" data-act="remove-ex" data-xi="${idx}">Remove</button></p></div>
         <div class="anim" data-ex="${ex.id}" data-act="form-guide" role="button" tabindex="0" aria-label="Open form guide for ${esc(ex.name)}"></div>
       </div>`;
     }).join('');
@@ -432,6 +437,7 @@
           <button class="link" data-act="add-set">+ Set</button>
           <button class="link" data-act="remove-set">− Set</button>
           <button class="link" data-act="swap">Swap</button>
+          <label class="restpick">Rest ${restSelect(entry.target.rest, `class="restsel" data-xi="${i}"`)}</label>
           ${!ex.timed ? `<button class="link ${entry.sets.some((s) => s.max) ? 'on' : ''}" data-act="max-set">${entry.sets.some((s) => s.max) ? '★ Max set on' : '★ Max out'}</button>` : ''}
           ${!entry.ss && state.current && state.current.exercises.length > 1 ? '<button class="link" data-act="ss-open">🔗 Superset</button>' : ''}
           <button class="link danger" data-act="remove-ex">Remove</button>
@@ -1308,6 +1314,15 @@
     else if (t.id === 'libMine') { ui.libMine = t.checked; $('#libList').innerHTML = libItems(); }
     else if (t.id === 'warmToggle') { state.settings.warmups = t.checked; save(); }
     else if (t.id === 'ssToggle') { state.settings.supersets = t.checked; save(); }
+    else if (t.id === 'restDefault') {
+      state.settings.restSec = +t.value;
+      if (state.current && state.settings.restSec > 0) state.current.exercises.forEach((en) => { if (!EX_BY_ID[en.exId].timed) en.target.rest = state.settings.restSec; });
+      save(); toast(state.settings.restSec ? `Rest set to ${restLabel(state.settings.restSec)}` : 'Rest back to automatic');
+    }
+    else if (t.classList && t.classList.contains('restsel') && state.current) {
+      const en = state.current.exercises[+t.dataset.xi]; if (!en) return;
+      en.target.rest = +t.value; save(); toast(`Rest ${restLabel(en.target.rest)} for ${EX_BY_ID[en.exId].name}`);
+    }
     else if (t.id === 'restToggle') { state.settings.restTimer = t.checked; save(); if (!t.checked) { ui.restEnd = 0; tick(); } }
     else if (t.dataset && t.dataset.equip && ui.draft) {
       const eq = ui.draft.equipment, k = eq.indexOf(t.dataset.equip);
