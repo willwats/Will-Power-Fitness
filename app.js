@@ -354,12 +354,20 @@
   function setRow(entry, i, j, label) {
     const ex = EX_BY_ID[entry.exId], st = entry.sets[j], units = state.settings.units;
     return `
-      <div class="set ${st.done ? 'done' : ''} ${st.warm ? 'warm' : ''}" data-i="${i}" data-j="${j}">
-        <span class="n">${label}</span>
+      <div class="set ${st.done ? 'done' : ''} ${st.warm ? 'warm' : ''} ${st.max ? 'max' : ''}" data-i="${i}" data-j="${j}">
+        <span class="n">${st.max ? '★' : label}</span>
         ${ex.timed ? '<span class="w-na"></span><span></span>' : `<input class="w" inputmode="decimal" data-field="w" placeholder="${ex.loaded ? '0' : 'BW'}" value="${esc(st.w)}" aria-label="Weight"><span class="u">${units}</span>`}
-        <input class="r" inputmode="numeric" data-field="r" placeholder="${esc(entry.target.reps)}" value="${esc(st.r)}" aria-label="${ex.timed ? 'Seconds' : 'Reps'}"><span class="u">${ex.timed ? 'sec' : 'reps'}</span>
+        <input class="r" inputmode="numeric" data-field="r" placeholder="${st.max ? 'max' : esc(entry.target.reps)}" value="${esc(st.r)}" aria-label="${ex.timed ? 'Seconds' : 'Reps'}"><span class="u">${ex.timed ? 'sec' : 'reps'}</span>
         <button class="check" data-act="toggle-set" aria-pressed="${st.done}" aria-label="Mark set ${j + 1} done">✓</button>
-      </div>`;
+      </div>${effortHtml(st, i, j)}${st.max && !st.done ? '<p class="fxhint">Max out: as many good reps as you can, then tick it.</p>' : ''}`;
+  }
+  const FX = { hard: ['Hard', 'No more reps'], ok: ['Just right', '1–2 more'], easy: ['Easy', '3+ more'] };
+  /** After a working set is ticked: "could you have done more reps?" (not asked for warm-ups or max sets). */
+  function effortHtml(st, i, j) {
+    if (!st.done || st.warm || st.max) return '';
+    if (st.fx) return `<div class="fx fx-done" data-i="${i}" data-j="${j}"><span class="fxtag fx-${st.fx}">${FX[st.fx][0]} · ${FX[st.fx][1]}</span><button class="link" data-act="fx-clear">change</button></div>`;
+    return `<div class="fx" data-i="${i}" data-j="${j}" role="group" aria-label="Could you have done more reps?"><span class="fxq">Could you have done more reps?</span>
+      ${Object.entries(FX).map(([k, [l, s]]) => `<button class="fxb fx-${k}" data-act="fx" data-v="${k}"><b>${l}</b><small>${s}</small></button>`).join('')}</div>`;
   }
   /** Two linked exercises as one card: A1, B1, A2, B2 … with the rest timer after each round. */
   function ssCard(a, ia, b, ib) {
@@ -424,6 +432,7 @@
           <button class="link" data-act="add-set">+ Set</button>
           <button class="link" data-act="remove-set">− Set</button>
           <button class="link" data-act="swap">Swap</button>
+          ${!ex.timed ? `<button class="link ${entry.sets.some((s) => s.max) ? 'on' : ''}" data-act="max-set">${entry.sets.some((s) => s.max) ? '★ Max set on' : '★ Max out'}</button>` : ''}
           ${!entry.ss && state.current && state.current.exercises.length > 1 ? '<button class="link" data-act="ss-open">🔗 Superset</button>' : ''}
           <button class="link danger" data-act="remove-ex">Remove</button>
         </footer>
@@ -848,7 +857,7 @@
     const sets = state.current.exercises[i].sets, src = sets[j];
     if (src.warm || !String(src[field]).trim()) return;
     sets.forEach((s, k) => {
-      if (k <= j || s.warm || s.done) return;
+      if (k <= j || s.warm || s.done || (s.max && field === 'r')) return;
       s[field] = src[field];
       const el = document.querySelector(`.set[data-i="${i}"][data-j="${k}"] input.${field}`);
       if (el) el.value = src[field];
@@ -922,7 +931,7 @@
     const exercises = w.exercises.map((en) => {
       const ex = EX_BY_ID[en.exId];
       return { exId: ex.id, name: ex.name, muscle: ex.muscle, timed: ex.timed,
-        sets: en.sets.filter((s) => s.done).map((s) => (s.warm ? { w: num(s.w), r: num(s.r), warm: true } : { w: num(s.w), r: num(s.r) })) };
+        sets: en.sets.filter((s) => s.done).map((s) => (s.warm ? { w: num(s.w), r: num(s.r), warm: true } : { w: num(s.w), r: num(s.r), ...(s.fx ? { fx: s.fx } : {}), ...(s.max ? { max: true } : {}) })) };
     }).filter((e) => e.sets.length);
     if (!exercises.length) {
       if (confirm('No sets were logged. Discard this workout?')) { state.current = null; ui.restEnd = 0; save(); render(); }
@@ -1013,7 +1022,9 @@
       case 'toggle-set': {
         const j = +t.closest('.set').dataset.j;
         const s = w.exercises[i].sets[j];
+        if (!s.done && s.max && !(num(s.r) > 0)) { toast('Enter how many reps you got on the max set'); const inp = t.closest('.set').querySelector('input.r'); if (inp) inp.focus(); break; }
         s.done = !s.done;
+        if (!s.done) delete s.fx;
         if (s.done) {
           if (!w.startedAt) w.startedAt = Date.now();
           if (!String(s.r).trim()) s.r = String(parseInt(w.exercises[i].target.reps, 10) || 10);
@@ -1031,6 +1042,13 @@
           if (!moveOn) startRest(s.warm ? 40 : en.target.rest);
         }
         save();
+        { const row = t.closest('.set'), nx = row.nextElementSibling;
+          if (nx && nx.classList.contains('fx')) nx.remove();
+          if (s.done) {
+            row.insertAdjacentHTML('afterend', effortHtml(s, i, j));
+            const fxEl = row.nextElementSibling;                       // keep it clear of the rest bar and tab bar at the bottom
+            if (fxEl && fxEl.classList.contains('fx') && fxEl.getBoundingClientRect().bottom > window.innerHeight - 170) fxEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          } }
         t.closest('.set').classList.toggle('done', s.done);
         t.setAttribute('aria-pressed', s.done);
         updateProgressDom(); markNext();
@@ -1038,6 +1056,35 @@
         // the "Regenerate" button should vanish once a set is done
         if (s.done) render();
         break;
+      }
+      case 'fx': {
+        const row = t.closest('.fx'); const ei = +row.dataset.i, sj = +row.dataset.j;
+        const en = state.current.exercises[ei], s = en.sets[sj], ex = EX_BY_ID[en.exId]; s.fx = d.v;
+        const next = en.sets.filter((x, k) => k > sj && !x.warm && !x.done && !x.max);
+        const low = PROG.repsLow(en.target.reps);
+        let msg = '';
+        if (next.length && d.v === 'easy') {
+          if (PROG.weighted(ex) && num(s.w) > 0) { const nw = String(num(s.w) + PROG.step(state.settings.units, PROG.kindOf(ex), num(s.w))); next.forEach((x) => { if (num(x.w) === num(s.w)) x.w = nw; }); msg = `Easy — next sets up to ${nw} ${state.settings.units}`; }
+          else { const inc = ex.timed ? 5 : 2, nr = String(num(s.r) + inc); next.forEach((x) => { if (num(x.r) <= num(s.r)) x.r = nr; }); msg = `Easy — next sets: ${nr}${ex.timed ? ' sec' : ' reps'}`; }
+        } else if (next.length && d.v === 'hard' && num(s.r) < low && PROG.weighted(ex) && num(s.w) > 0) {
+          const nw = String(Math.max(0, num(s.w) - PROG.step(state.settings.units, PROG.kindOf(ex), num(s.w)))); next.forEach((x) => { if (num(x.w) === num(s.w)) x.w = nw; }); msg = `Hard — next sets down to ${nw} ${state.settings.units}`;
+        }
+        save();
+        row.outerHTML = effortHtml(s, ei, sj);
+        en.sets.forEach((x, k) => { const r = document.querySelector(`.set[data-i="${ei}"][data-j="${k}"]`); if (!r) return; const wi = r.querySelector('input.w'), ri = r.querySelector('input.r'); if (wi) wi.value = x.w; if (ri) ri.value = x.r; });
+        if (msg) toast(msg); break;
+      }
+      case 'fx-clear': { const row = t.closest('.fx'), ei = +row.dataset.i, sj = +row.dataset.j, s = state.current.exercises[ei].sets[sj]; delete s.fx; save(); row.outerHTML = effortHtml(s, ei, sj); break; }
+      case 'max-set': {
+        const en = w.exercises[i], on = en.sets.find((s) => s.max);
+        if (on) { delete on.max; }
+        else {
+          let k = en.sets.length - 1; while (k >= 0 && en.sets[k].warm) k--;
+          if (k < 0 || en.sets[k].done) { toast('Add a set first, then make it the max set'); break; }
+          en.sets[k].max = true; en.sets[k].r = '';
+          if (!String(en.sets[k].w).trim() && k > 0) en.sets[k].w = en.sets[k - 1].w;
+        }
+        save(); render(); break;
       }
       case 'add-set': {
         const sets = w.exercises[i].sets, prev = sets[sets.length - 1];

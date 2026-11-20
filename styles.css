@@ -428,3 +428,16 @@ h2.section { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase;
 .rings li b { font-size: 1.05rem; }
 .rings li b small { font-weight: 600; color: var(--muted); margin-left: 2px; }
 .rings li span { color: var(--muted); font-size: .8rem; }
+
+.fx { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 4px 8px; padding: 8px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 8%, var(--card2)); border: 1px solid var(--line); }
+.fxq { flex: 1 1 100%; font-size: .8rem; color: var(--muted); font-weight: 600; }
+.fxb { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+.fxb small { font-size: .7rem; color: var(--muted); }
+.fxb.fx-hard { border-color: color-mix(in srgb, var(--hot) 50%, var(--line)); }
+.fxb.fx-easy { border-color: color-mix(in srgb, var(--good) 50%, var(--line)); }
+.fx-done { background: none; border: 0; padding: 0 4px; margin: 0 4px 6px; }
+.fxtag { font-size: .75rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--card2); border: 1px solid var(--line); }
+.fxtag.fx-hard { color: var(--hot); } .fxtag.fx-easy { color: var(--good); }
+.fxhint { margin: 0 6px 8px; font-size: .78rem; color: var(--accent); }
+.set.max input.r { border-color: var(--accent); }
+.ex footer .link.on { color: var(--accent); font-weight: 700; }

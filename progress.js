@@ -61,12 +61,18 @@ const PROG = (() => {
     /* No weight to track (bodyweight / timed): nudge the reps or seconds up when the top was hit */
     if (!weighted(ex)) {
       if (!last) return { sets: blank(), note: '', kind: 'none' };
-      const rs = last.sets.map((s) => num(s.r)), hit = rs.length && rs.every((r) => r >= topRep);
+      const reg = last.sets.filter((s) => !s.max), mx = last.sets.find((s) => s.max);
+      const rs = (reg.length ? reg : last.sets).map((s) => num(s.r)), hit = rs.length && rs.every((r) => r >= topRep);
+      const easy = reg.filter((s) => s.fx === 'easy').length * 2 >= reg.length && reg.some((s) => s.fx === 'easy');
       const bump = ex.timed ? 5 : 2;
       const base = Math.max(...rs, lowRep);
-      const r = hit ? base + bump : Math.max(lowRep, Math.round(rs.reduce((a, b) => a + b, 0) / rs.length));
-      return { sets: Array.from({ length: n }, () => ({ w: '', r: String(r) })), kind: hit ? 'reps' : 'repeat',
-        note: hit ? `Go for ${r}${ex.timed ? ' seconds' : ' reps'} — you hit ${base} on every set last time.` : `Repeat last time and add a rep or two where you can.` };
+      const avg = Math.max(lowRep, Math.round(rs.reduce((a, b) => a + b, 0) / rs.length));
+      const r = hit || easy ? base + bump : avg;
+      const mxNote = mx ? ` Your max set was ${num(mx.r)}.` : '';
+      return { sets: Array.from({ length: n }, () => ({ w: '', r: String(r) })), kind: hit || easy ? 'reps' : 'repeat',
+        note: hit ? `Go for ${r}${ex.timed ? ' seconds' : ' reps'} — you hit ${base} on every set last time.${mxNote}`
+          : easy ? `Go for ${r}${ex.timed ? ' seconds' : ' reps'} — you rated last time easy.${mxNote}`
+          : `Repeat last time and add a rep or two where you can.${mxNote}` };
     }
 
     const kind = kindOf(ex);
@@ -75,8 +81,22 @@ const PROG = (() => {
       if (top > 0) {
         const atTop = last.sets.filter((s) => num(s.w) === top);
         const best = Math.max(...atTop.map((s) => num(s.r)));
-        const hit = atTop.length >= Math.min(2, last.sets.length) && atTop.every((s) => num(s.r) >= topRep);
+        const reg = atTop.filter((s) => !s.max), mx = atTop.find((s) => s.max);
+        const regs = reg.length ? reg : atTop;
+        const hit = regs.length >= Math.min(2, last.sets.length) && regs.every((s) => num(s.r) >= topRep) && (!mx || num(mx.r) >= lowRep);
+        const easyN = regs.filter((s) => s.fx === 'easy').length, hardN = regs.filter((s) => s.fx === 'hard').length;
+        const easy = easyN > 0 && easyN * 2 >= regs.length && best >= lowRep;
+        const allHard = regs.length > 0 && hardN === regs.length;
         const inc = step(units, kind, top);
+        if (hit && allHard) {
+          return { kind: 'repeat', note: `Repeat ${top} ${units}. You hit ${topRep}+ reps but rated it hard — own it once more, then go up.`,
+            sets: Array.from({ length: n }, () => ({ w: String(top), r: String(topRep) })) };
+        }
+        if (!hit && easy) {
+          const nw = top + inc;
+          return { kind: 'progress', note: `Try ${nw} ${units} × ${lowRep}. You rated ${top} ${units} easy last time.`,
+            sets: Array.from({ length: n }, () => ({ w: String(nw), r: String(lowRep) })) };
+        }
         if (hit) {
           const nw = top + inc;
           return { kind: 'progress', note: `Try ${nw} ${units} × ${lowRep}. You got ${topRep}+ reps on every set at ${top} ${units} last time.`,
@@ -141,7 +161,7 @@ const PROG = (() => {
     }).slice(0, limit);
   }
 
-  return { suggest, newPRs, summaries, bestE1rm, lastSets, e1rm, kindOf, repsTop, repsLow, weighted };
+  return { suggest, newPRs, summaries, bestE1rm, lastSets, e1rm, kindOf, repsTop, repsLow, weighted, step };
 })();
 
 if (typeof module !== 'undefined') module.exports = PROG;
