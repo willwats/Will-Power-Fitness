@@ -445,3 +445,6 @@ h2.section { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase;
 .restpick { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--muted); font-weight: 600; }
 .restpick select, .restfield select { padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); color: var(--text); font: inherit; }
 .restfield { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; }
+
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stackbox { margin: 10px 0; }

@@ -79,6 +79,7 @@
   let state = load();
   if (!Array.isArray(state.custom)) state.custom = [];
   if (!Array.isArray(state.favs)) state.favs = [];
+  if (!state.settings.stackSeeded) { state.profiles.forEach((p) => { if (p.name === 'Gym' && !p.stack) p.stack = { start: 2.5, step: 5, max: 97.5 }; }); state.settings.stackSeeded = true; }
   const isFav = (id) => state.favs.includes(id);
   CUSTOM.sync(state.custom, EXERCISES, EX_BY_ID);
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage full / blocked */ } };
@@ -139,6 +140,19 @@
     const g = GOALS[goal] || GOALS.hypertrophy;
     return { ...(ex.compound ? g.compound : g.iso) };
   }
+  /* Selectorized machines and cables only offer the weights on their stack (e.g. Life Fitness: 2.5, 7.5 … 97.5). */
+  const stackOf = (ex, prof) => { const st = prof && prof.stack, k = PROG.kindOf(ex); return st && st.step > 0 && (k === 'machine' || k === 'cable') ? st : null; };
+  function snapStack(st, w, dir) {
+    const n = Math.max(0, Math.floor((st.max - st.start) / st.step + 1e-9));
+    let k = (num(w) - st.start) / st.step;
+    k = dir > 0 ? Math.ceil(k + 1e-9) : dir < 0 ? Math.floor(k - 1e-9) : Math.round(k);
+    return st.start + Math.min(n, Math.max(0, k)) * st.step;
+  }
+  function snapEntry(en) {
+    const ex = EX_BY_ID[en.exId], st = stackOf(ex, workoutProfile());
+    if (!st) return;
+    en.sets.forEach((s) => { if (num(s.w) > 0) s.w = String(snapStack(st, s.w, 0)); });
+  }
   const REST_CHOICES = [30, 45, 60, 90, 120, 150, 180, 240, 300];
   const restLabel = (s) => (s < 60 ? `${s}s` : s % 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s / 60} min`);
   const restSelect = (cur, attrs, autoLabel) => `<select ${attrs} aria-label="Rest between sets">${autoLabel ? `<option value="0" ${!cur ? 'selected' : ''}>${autoLabel}</option>` : ''}${[...new Set([...REST_CHOICES, cur].filter(Boolean))].sort((x, y) => x - y).map((v) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${restLabel(v)}</option>`).join('')}</select>`;
@@ -147,7 +161,9 @@
     if (state.settings.restSec > 0 && !ex.timed) target.rest = state.settings.restSec;
     const sg = PROG.suggest(ex, target, state.history, state.settings.units, EX_BY_ID);
     const sets = sg.sets.map((s) => ({ w: ex.timed ? '' : s.w, r: s.r, done: false }));
-    return { exId: ex.id, target, sets, note: sg.note, nkind: sg.kind };
+    const entry = { exId: ex.id, target, sets, note: sg.note, nkind: sg.kind };
+    snapEntry(entry);
+    return entry;
   }
 
   /* Pair antagonist muscles (chest/back, biceps/triceps, quads/hamstrings) — or two isolation lifts — as supersets. */
@@ -255,7 +271,10 @@
       if (ss) { en.ss = ss[0]; en.ssPos = ss[1]; }
       return en;
     });
+    entries.forEach((en) => { if (en.ssPos === 2) { const pa = entries.find((x) => x.ss === en.ss && x.ssPos === 1); if (pa) evenSets(pa, en); } });
+    entries.forEach(snapEntry);
     if (state.settings.warmups) addWarmups(entries);
+    entries.forEach(snapEntry);
 
     state.current = {
       id: uid(), createdAt: Date.now(), startedAt: null,
@@ -364,14 +383,16 @@
         ${ex.timed ? '<span class="w-na"></span><span></span>' : `<input class="w" inputmode="decimal" data-field="w" placeholder="${ex.loaded ? '0' : 'BW'}" value="${esc(st.w)}" aria-label="Weight"><span class="u">${units}</span>`}
         <input class="r" inputmode="numeric" data-field="r" placeholder="${st.max ? 'max' : esc(entry.target.reps)}" value="${esc(st.r)}" aria-label="${ex.timed ? 'Seconds' : 'Reps'}"><span class="u">${ex.timed ? 'sec' : 'reps'}</span>
         <button class="check" data-act="toggle-set" aria-pressed="${st.done}" aria-label="Mark set ${j + 1} done">✓</button>
-      </div>${effortHtml(st, i, j)}${st.max && !st.done ? '<p class="fxhint">Max out: as many good reps as you can, then tick it.</p>' : ''}`;
+      </div>${effortHtml(entry, i, j)}${st.max && !st.done ? '<p class="fxhint">Max out: as many good reps as you can, then tick it.</p>' : ''}`;
   }
   const FX = { hard: ['Hard', 'No more reps'], ok: ['Just right', '1–2 more'], easy: ['Easy', '3+ more'] };
   /** After a working set is ticked: "could you have done more reps?" (not asked for warm-ups or max sets). */
-  function effortHtml(st, i, j) {
-    if (!st.done || st.warm || st.max) return '';
-    if (st.fx) return `<div class="fx fx-done" data-i="${i}" data-j="${j}"><span class="fxtag fx-${st.fx}">${FX[st.fx][0]} · ${FX[st.fx][1]}</span><button class="link" data-act="fx-clear">change</button></div>`;
-    return `<div class="fx" data-i="${i}" data-j="${j}" role="group" aria-label="Could you have done more reps?"><span class="fxq">Could you have done more reps?</span>
+  const lastWorkIdx = (en) => { for (let k = en.sets.length - 1; k >= 0; k--) if (!en.sets[k].warm) return k; return -1; };
+  const exerciseDone = (en) => en.sets.every((s) => s.warm || s.done);
+  function effortHtml(en, i, j) {
+    if (j !== lastWorkIdx(en) || !exerciseDone(en) || en.sets[j].max) return '';
+    if (en.fx) return `<div class="fx fx-done" data-i="${i}" data-j="${j}"><span class="fxtag fx-${en.fx}">${FX[en.fx][0]} · ${FX[en.fx][1]}</span><button class="link" data-act="fx-clear">change</button></div>`;
+    return `<div class="fx" data-i="${i}" data-j="${j}" role="group" aria-label="Could you have done more reps?"><span class="fxq">How was ${esc(EX_BY_ID[en.exId].name)}? Could you have done more reps?</span>
       ${Object.entries(FX).map(([k, [l, s]]) => `<button class="fxb fx-${k}" data-act="fx" data-v="${k}"><b>${l}</b><small>${s}</small></button>`).join('')}</div>`;
   }
   /** Two linked exercises as one card: A1, B1, A2, B2 … with the rest timer after each round. */
@@ -635,6 +656,14 @@
       <div class="field"><label for="pname">Profile name</label><input id="pname" class="search" maxlength="40" value="${esc(d.name)}" placeholder="e.g. Home – Upstairs"></div>
       <div class="pills scroll">${EQUIP_PRESETS.map(([id, l]) => `<button class="pill" data-act="equip-preset" data-p="${id}">${l}</button>`).join('')}</div>
       <p class="muted" id="unlockInfo"></p>
+      <fieldset class="stackbox"><legend>Machine weight stack (optional)</legend>
+        <p class="muted small">Selectorized machines and cables only offer the weights on their stack. Enter the lightest plate, the jump between plates and the heaviest, and suggestions will land on real pins. Leave blank for no limit.</p>
+        <div class="grid3">
+          <div class="field"><label for="stStart">Lightest</label><input id="stStart" type="number" inputmode="decimal" step="any" value="${d.stack ? d.stack.start : ''}" placeholder="2.5"></div>
+          <div class="field"><label for="stStep">Step</label><input id="stStep" type="number" inputmode="decimal" step="any" value="${d.stack ? d.stack.step : ''}" placeholder="5"></div>
+          <div class="field"><label for="stMax">Heaviest</label><input id="stMax" type="number" inputmode="decimal" step="any" value="${d.stack ? d.stack.max : ''}" placeholder="97.5"></div>
+        </div>
+      </fieldset>
       ${groups}
       <button class="primary big" data-act="save-profile">Save profile</button>`);
     updateUnlockInfo();
@@ -872,6 +901,15 @@
   /* ── supersets: linked pairs share a letter; they render as one card and alternate set by set ── */
   const workIdx = (en) => en.sets.map((x, j) => (x.warm ? -1 : j)).filter((j) => j >= 0);
   const partnerOf = (w, en) => (en.ss ? w.exercises.find((x) => x !== en && x.ss === en.ss) : null);
+  /** A superset has the same number of working sets on both lifts. */
+  function evenSets(a, b) {
+    const work = (x) => x.sets.filter((s) => !s.warm).length;
+    const n = Math.max(work(a), work(b));
+    [a, b].forEach((x) => {
+      while (work(x) < n) { const p = x.sets[x.sets.length - 1] || { w: '', r: '10' }; x.sets.push({ w: p.w, r: p.r, done: false }); }
+      x.target.sets = n;
+    });
+  }
   function ssLink(i, k) {
     const arr = state.current.exercises, a = arr[i], b = arr[k];
     if (!a || !b || a === b || a.ss || b.ss) return;
@@ -879,6 +917,7 @@
     let L = 'A'; while (used.has(L)) L = String.fromCharCode(L.charCodeAt(0) + 1);
     arr.splice(k, 1); arr.splice(arr.indexOf(a) + 1, 0, b);
     a.ss = b.ss = L; a.ssPos = 1; b.ssPos = 2;
+    evenSets(a, b);
   }
   function ssUnlink(en) {
     const p = partnerOf(state.current, en);
@@ -937,7 +976,7 @@
     const exercises = w.exercises.map((en) => {
       const ex = EX_BY_ID[en.exId];
       return { exId: ex.id, name: ex.name, muscle: ex.muscle, timed: ex.timed,
-        sets: en.sets.filter((s) => s.done).map((s) => (s.warm ? { w: num(s.w), r: num(s.r), warm: true } : { w: num(s.w), r: num(s.r), ...(s.fx ? { fx: s.fx } : {}), ...(s.max ? { max: true } : {}) })) };
+        sets: en.sets.filter((s) => s.done).map((s, k, arr) => (s.warm ? { w: num(s.w), r: num(s.r), warm: true } : { w: num(s.w), r: num(s.r), ...(en.fx && k === arr.length - 1 ? { fx: en.fx } : {}), ...(s.max ? { max: true } : {}) })) };
     }).filter((e) => e.sets.length);
     if (!exercises.length) {
       if (confirm('No sets were logged. Discard this workout?')) { state.current = null; ui.restEnd = 0; save(); render(); }
@@ -958,11 +997,14 @@
   function saveProfile() {
     const d = ui.draft;
     const name = ($('#pname').value || '').trim() || 'My profile';
+    const st = { start: num($('#stStart').value), step: num($('#stStep').value), max: num($('#stMax').value) };
+    const stack = st.step > 0 && st.max >= st.start && st.start >= 0 && $('#stMax').value !== '' ? st : null;
     if (d.id) {
       const p = state.profiles.find((x) => x.id === d.id);
       p.name = name; p.equipment = d.equipment.slice();
+      if (stack) p.stack = stack; else delete p.stack;
     } else {
-      const p = { id: uid(), name, equipment: d.equipment.slice() };
+      const p = { id: uid(), name, equipment: d.equipment.slice(), ...(stack ? { stack } : {}) };
       state.profiles.push(p);
       if (!state.profiles.some((x) => x.id === state.activeProfile)) state.activeProfile = p.id;
     }
@@ -1030,7 +1072,6 @@
         const s = w.exercises[i].sets[j];
         if (!s.done && s.max && !(num(s.r) > 0)) { toast('Enter how many reps you got on the max set'); const inp = t.closest('.set').querySelector('input.r'); if (inp) inp.focus(); break; }
         s.done = !s.done;
-        if (!s.done) delete s.fx;
         if (s.done) {
           if (!w.startedAt) w.startedAt = Date.now();
           if (!String(s.r).trim()) s.r = String(parseInt(w.exercises[i].target.reps, 10) || 10);
@@ -1048,13 +1089,17 @@
           if (!moveOn) startRest(s.warm ? 40 : en.target.rest);
         }
         save();
-        { const row = t.closest('.set'), nx = row.nextElementSibling;
-          if (nx && nx.classList.contains('fx')) nx.remove();
-          if (s.done) {
-            row.insertAdjacentHTML('afterend', effortHtml(s, i, j));
-            const fxEl = row.nextElementSibling;                       // keep it clear of the rest bar and tab bar at the bottom
+        {
+          const en = w.exercises[i];
+          if (!exerciseDone(en) && en.fx) { delete en.fx; save(); }
+          $$(`.fx[data-i="${i}"]`).forEach((n) => n.remove());
+          const lj = lastWorkIdx(en), lrow = document.querySelector(`.set[data-i="${i}"][data-j="${lj}"]`);
+          if (lrow && exerciseDone(en)) {
+            lrow.insertAdjacentHTML('afterend', effortHtml(en, i, lj));
+            const fxEl = lrow.nextElementSibling;                       // keep it clear of the rest bar and tab bar at the bottom
             if (fxEl && fxEl.classList.contains('fx') && fxEl.getBoundingClientRect().bottom > window.innerHeight - 170) fxEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          } }
+          }
+        }
         t.closest('.set').classList.toggle('done', s.done);
         t.setAttribute('aria-pressed', s.done);
         updateProgressDom(); markNext();
@@ -1064,23 +1109,10 @@
         break;
       }
       case 'fx': {
-        const row = t.closest('.fx'); const ei = +row.dataset.i, sj = +row.dataset.j;
-        const en = state.current.exercises[ei], s = en.sets[sj], ex = EX_BY_ID[en.exId]; s.fx = d.v;
-        const next = en.sets.filter((x, k) => k > sj && !x.warm && !x.done && !x.max);
-        const low = PROG.repsLow(en.target.reps);
-        let msg = '';
-        if (next.length && d.v === 'easy') {
-          if (PROG.weighted(ex) && num(s.w) > 0) { const nw = String(num(s.w) + PROG.step(state.settings.units, PROG.kindOf(ex), num(s.w))); next.forEach((x) => { if (num(x.w) === num(s.w)) x.w = nw; }); msg = `Easy — next sets up to ${nw} ${state.settings.units}`; }
-          else { const inc = ex.timed ? 5 : 2, nr = String(num(s.r) + inc); next.forEach((x) => { if (num(x.r) <= num(s.r)) x.r = nr; }); msg = `Easy — next sets: ${nr}${ex.timed ? ' sec' : ' reps'}`; }
-        } else if (next.length && d.v === 'hard' && num(s.r) < low && PROG.weighted(ex) && num(s.w) > 0) {
-          const nw = String(Math.max(0, num(s.w) - PROG.step(state.settings.units, PROG.kindOf(ex), num(s.w)))); next.forEach((x) => { if (num(x.w) === num(s.w)) x.w = nw; }); msg = `Hard — next sets down to ${nw} ${state.settings.units}`;
-        }
-        save();
-        row.outerHTML = effortHtml(s, ei, sj);
-        en.sets.forEach((x, k) => { const r = document.querySelector(`.set[data-i="${ei}"][data-j="${k}"]`); if (!r) return; const wi = r.querySelector('input.w'), ri = r.querySelector('input.r'); if (wi) wi.value = x.w; if (ri) ri.value = x.r; });
-        if (msg) toast(msg); break;
+        const row = t.closest('.fx'); const ei = +row.dataset.i, en = state.current.exercises[ei]; en.fx = d.v; save();
+        row.outerHTML = effortHtml(en, ei, +row.dataset.j); break;
       }
-      case 'fx-clear': { const row = t.closest('.fx'), ei = +row.dataset.i, sj = +row.dataset.j, s = state.current.exercises[ei].sets[sj]; delete s.fx; save(); row.outerHTML = effortHtml(s, ei, sj); break; }
+      case 'fx-clear': { const row = t.closest('.fx'), ei = +row.dataset.i, en = state.current.exercises[ei]; delete en.fx; save(); row.outerHTML = effortHtml(en, ei, +row.dataset.j); break; }
       case 'max-set': {
         const en = w.exercises[i], on = en.sets.find((s) => s.max);
         if (on) { delete on.max; }
@@ -1094,7 +1126,7 @@
       }
       case 'add-set': {
         const sets = w.exercises[i].sets, prev = sets[sets.length - 1];
-        sets.push({ w: prev ? prev.w : '', r: prev ? prev.r : '10', done: false });
+        sets.push({ w: prev ? prev.w : '', r: prev ? prev.r : '10', done: false }); delete w.exercises[i].fx;
         save(); render(); break;
       }
       case 'remove-set': {
@@ -1117,6 +1149,7 @@
         const en = w.exercises[i], pa = partnerOf(w, en);
         [en, pa].forEach((x) => {
           if (!x) return;
+          delete x.fx;
           if (act === 'ss-add') { const prev = x.sets[x.sets.length - 1]; x.sets.push({ w: prev ? prev.w : '', r: prev ? prev.r : '10', done: false }); }
           else if (x.sets.length > 1) x.sets.pop();
         });
@@ -1219,7 +1252,7 @@
       case 'new-profile': ui.draft = { id: null, name: '', equipment: ['dumbbell', 'bench', 'bands'] }; sheetEditor(); break;
       case 'edit-profile': {
         const p = state.profiles.find((x) => x.id === d.id);
-        ui.draft = { id: p.id, name: p.name, equipment: p.equipment.slice() }; sheetEditor(); break;
+        ui.draft = { id: p.id, name: p.name, equipment: p.equipment.slice(), stack: p.stack ? { ...p.stack } : null }; sheetEditor(); break;
       }
       case 'dup-profile': {
         const p = state.profiles.find((x) => x.id === d.id);

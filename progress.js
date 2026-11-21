@@ -63,7 +63,7 @@ const PROG = (() => {
       if (!last) return { sets: blank(), note: '', kind: 'none' };
       const reg = last.sets.filter((s) => !s.max), mx = last.sets.find((s) => s.max);
       const rs = (reg.length ? reg : last.sets).map((s) => num(s.r)), hit = rs.length && rs.every((r) => r >= topRep);
-      const easy = reg.filter((s) => s.fx === 'easy').length * 2 >= reg.length && reg.some((s) => s.fx === 'easy');
+      const rated = reg.filter((s) => s.fx), easy = rated.some((s) => s.fx === 'easy') && rated.filter((s) => s.fx === 'easy').length * 2 >= rated.length;
       const bump = ex.timed ? 5 : 2;
       const base = Math.max(...rs, lowRep);
       const avg = Math.max(lowRep, Math.round(rs.reduce((a, b) => a + b, 0) / rs.length));
@@ -84,9 +84,9 @@ const PROG = (() => {
         const reg = atTop.filter((s) => !s.max), mx = atTop.find((s) => s.max);
         const regs = reg.length ? reg : atTop;
         const hit = regs.length >= Math.min(2, last.sets.length) && regs.every((s) => num(s.r) >= topRep) && (!mx || num(mx.r) >= lowRep);
-        const easyN = regs.filter((s) => s.fx === 'easy').length, hardN = regs.filter((s) => s.fx === 'hard').length;
-        const easy = easyN > 0 && easyN * 2 >= regs.length && best >= lowRep;
-        const allHard = regs.length > 0 && hardN === regs.length;
+        const rated = regs.filter((s) => s.fx), easyN = rated.filter((s) => s.fx === 'easy').length, hardN = rated.filter((s) => s.fx === 'hard').length;
+        const easy = easyN > 0 && easyN * 2 >= rated.length && best >= lowRep;
+        const allHard = rated.length > 0 && hardN === rated.length;
         const inc = step(units, kind, top);
         if (hit && allHard) {
           return { kind: 'repeat', note: `Repeat ${top} ${units}. You hit ${topRep}+ reps but rated it hard — own it once more, then go up.`,
