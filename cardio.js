@@ -148,6 +148,14 @@ const CARDIO = (() => {
     for (const w of parsed.workouts) {
       const dup = state.cardio.some((c) => c.source === 'health' && c.type === w.type && Math.abs(c.date - w.start) < 120000);
       if (dup) continue;
+      // A session typed in by hand on the same day with a similar length is the same workout: keep the Watch's numbers.
+      const twin = state.cardio.find((c) => c.source !== 'health' && c.type === w.type && dayKey(c.date) === dayKey(w.start)
+        && w.dur > 0 && Math.abs(c.dur - w.dur) <= Math.max(300, w.dur * 0.25));
+      if (twin) {
+        Object.assign(twin, { date: w.start, dur: w.dur, kcal: w.kcal || twin.kcal, label: w.label, source: 'health',
+          dist: w.miles ? Math.round(metersToUnit(w.miles * MI, units) * 100) / 100 : twin.dist });
+        added++; continue;
+      }
       state.cardio.unshift({
         id: Math.random().toString(36).slice(2, 10), type: w.type, label: w.label, date: w.start, dur: w.dur,
         dist: w.miles ? Math.round(metersToUnit(w.miles * MI, units) * 100) / 100 : 0, kcal: w.kcal, source: 'health',

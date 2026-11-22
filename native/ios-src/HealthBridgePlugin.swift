@@ -108,9 +108,10 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         store.execute(sq)
 
-        // Today's workouts.
+        // Workouts from the last 14 days (the app skips ones it already has).
         group.enter()
-        let wpred = HKQuery.predicateForSamples(withStart: start, end: now, options: .strictStartDate)
+        let wstart = cal.date(byAdding: .day, value: -14, to: start) ?? start   // last two weeks of workouts
+        let wpred = HKQuery.predicateForSamples(withStart: wstart, end: now, options: .strictStartDate)
         let wq = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: wpred, limit: HKObjectQueryNoLimit,
                                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]) { _, samples, _ in
             let list: [[String: Any]] = (samples as? [HKWorkout] ?? []).map { w in
