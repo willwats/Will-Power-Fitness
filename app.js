@@ -49,7 +49,7 @@
       v: 1,
       profiles: [gym, home],
       activeProfile: gym.id,
-      settings: { units: 'lb', goal: 'hypertrophy', level: 'intermediate', count: 6, restTimer: true, weight: 0, warmups: true, supersets: false, sport: '' },
+      settings: { units: 'lb', goal: 'hypertrophy', level: 'intermediate', count: 6, restTimer: true, weight: 0, warmups: true, supersets: false, sport: '', restAlert: true, wakeLock: true },
       selected: [],
       regions: {},
       history: [],
@@ -79,6 +79,7 @@
   let state = load();
   if (!Array.isArray(state.custom)) state.custom = [];
   if (!Array.isArray(state.favs)) state.favs = [];
+  if (!Array.isArray(state.routines)) state.routines = [];
   if (!state.settings.stackSeeded) { state.profiles.forEach((p) => { if (p.name === 'Gym' && !p.stack) p.stack = { start: 2.5, step: 5, max: 97.5 }; }); state.settings.stackSeeded = true; }
   const isFav = (id) => state.favs.includes(id);
   CUSTOM.sync(state.custom, EXERCISES, EX_BY_ID);
@@ -156,9 +157,9 @@
   const REST_CHOICES = [30, 45, 60, 90, 120, 150, 180, 240, 300];
   const restLabel = (s) => (s < 60 ? `${s}s` : s % 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s / 60} min`);
   const restSelect = (cur, attrs, autoLabel) => `<select ${attrs} aria-label="Rest between sets">${autoLabel ? `<option value="0" ${!cur ? 'selected' : ''}>${autoLabel}</option>` : ''}${[...new Set([...REST_CHOICES, cur].filter(Boolean))].sort((x, y) => x - y).map((v) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${restLabel(v)}</option>`).join('')}</select>`;
-  function makeEntry(ex, goal) {
-    const target = prescription(ex, goal);
-    if (state.settings.restSec > 0 && !ex.timed) target.rest = state.settings.restSec;
+  function makeEntry(ex, goal, fixed) {
+    const target = fixed ? { ...prescription(ex, goal), ...fixed } : prescription(ex, goal);
+    if (!fixed && state.settings.restSec > 0 && !ex.timed) target.rest = state.settings.restSec;
     const sg = PROG.suggest(ex, target, state.history, state.settings.units, EX_BY_ID);
     const sets = sg.sets.map((s) => ({ w: ex.timed ? '' : s.w, r: s.r, done: false }));
     const entry = { exId: ex.id, target, sets, note: sg.note, nkind: sg.kind };
@@ -292,8 +293,75 @@
     if (state.current) return viewWorkout();
     if (ui.trainMode === 'cardio') return C.modeSwitch() + C.trainView();
     const planSet = P.isSet();
-    return C.modeSwitch() + C.liveBanner() + (planSet ? P.trainCard() : '') + viewBuilder()
+    return C.modeSwitch() + C.liveBanner() + todayCard() + viewRoutines() + (planSet ? P.trainCard() : '') + viewBuilder()
       + `<h2 class="section">Your day</h2>` + C.todayMini() + B.trainBanner() + (planSet ? "" : P.trainCard());
+  }
+
+  /* ───────────── saved routines ───────────── */
+  function routineFrom(w, name) {
+    return { id: uid(), name, created: Date.now(), lastUsed: 0, goal: w.goal, muscles: w.muscles.slice(), regions: { ...(w.regions || {}) },
+      exercises: w.exercises.filter((en) => EX_BY_ID[en.exId]).map((en) => ({ exId: en.exId, sets: en.sets.filter((s) => !s.warm).length || en.target.sets,
+        reps: en.target.reps, rest: en.target.rest, ...(en.ss ? { ss: en.ss, ssPos: en.ssPos } : {}) })) };
+  }
+  function todayCard() {
+    const now = Date.now(), sug = P.isSet() ? PLAN.suggestToday(state, now) : null;
+    const last = state.history[0];
+    const days = last ? Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(last.date).setHours(0, 0, 0, 0)) / 86400000) : null;
+    const wk = state.history.filter((h) => h.date >= now - 7 * 86400000).length;
+    const r = state.routines.slice().sort((x, y) => (y.lastUsed || y.created) - (x.lastUsed || x.created))[0];
+    let btn;
+    if (sug && sug.doneToday) btn = '<p class="tc-done">✓ Done for today — nice work.</p>';
+    else if (sug && sug.planned) btn = `<button class="primary big" data-act="pl-build">▶ Today: ${esc(sug.label)}</button>`;
+    else if (r) btn = `<button class="primary big" data-act="rt-start" data-id="${r.id}">▶ Start ${esc(r.name)}</button>`;
+    else btn = '<button class="primary big" data-act="go-build">Build today’s workout ↓</button>';
+    const d = new Date();
+    return `<section class="card todaycard">
+      <p class="tc-date">${d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+      <div class="tc-stats">
+        <div><b>${wk}</b><small>workouts this week</small></div>
+        <div><b>${last ? (days === 0 ? 'Today' : days === 1 ? 'Yesterday' : days + 'd ago') : '—'}</b><small>${last ? esc(titleOf(last.muscles, last.regions)) : 'no workouts yet'}</small></div>
+      </div>
+      ${btn}</section>`;
+  }
+  function viewRoutines() {
+    const rs = state.routines;
+    if (!rs.length) return '';
+    return `<section class="card routines"><h2>Your routines</h2>
+      ${rs.map((r) => `<div class="rt">
+        <div><b>${esc(r.name)}</b><small>${r.exercises.length} exercises · ${esc(r.exercises.slice(0, 3).map((x) => (EX_BY_ID[x.exId] || {}).name).filter(Boolean).join(', '))}${r.exercises.length > 3 ? '…' : ''}${r.lastUsed ? ' · last ' + fmtDate(r.lastUsed) : ''}</small></div>
+        <button class="pill on" data-act="rt-start" data-id="${r.id}">▶ Start</button>
+        <button class="link" data-act="rt-menu" data-id="${r.id}" aria-label="More for ${esc(r.name)}">⋯</button>
+      </div>`).join('')}</section>`;
+  }
+  function startRoutine(r) {
+    const prof = profile(), owned = prof.equipment;
+    const list = r.exercises.filter((x) => EX_BY_ID[x.exId]);
+    const missing = list.filter((x) => !isAvailable(EX_BY_ID[x.exId], owned)).length;
+    const entries = list.map((x) => {
+      const ex = EX_BY_ID[x.exId];
+      const en = makeEntry(ex, r.goal || state.settings.goal, { sets: x.sets, reps: x.reps, rest: x.rest });
+      if (x.ss) { en.ss = x.ss; en.ssPos = x.ssPos; }
+      return en;
+    });
+    entries.forEach((en) => { if (en.ss && entries.filter((x) => x.ss === en.ss).length !== 2) { delete en.ss; delete en.ssPos; } });
+    entries.forEach((en) => { if (en.ssPos === 2) { const pa = entries.find((x) => x.ss === en.ss && x.ssPos === 1); if (pa) evenSets(pa, en); } });
+    if (state.settings.warmups) addWarmups(entries);
+    entries.forEach(snapEntry);
+    state.current = { id: uid(), createdAt: Date.now(), startedAt: null, profileId: prof.id, profileName: prof.name,
+      muscles: r.muscles, goal: r.goal || state.settings.goal, regions: { ...(r.regions || {}) }, exercises: entries, routineId: r.id, routineName: r.name };
+    save(); ui.tab = 'train'; render(); window.scrollTo(0, 0);
+    toast(missing ? `${missing} exercise${missing > 1 ? 's' : ''} need gear this profile doesn’t have — swap them if needed` : `${r.name} ready — weights updated from last time`);
+  }
+  function saveRoutinePrompt(w) {
+    const name = (prompt('Name this routine', w.routineName || titleOf(w.muscles, w.regions)) || '').trim();
+    if (!name) return;
+    state.routines.unshift(routineFrom(w, name)); save(); toast(`Saved “${name}” — find it on the Train tab`);
+  }
+  function sheetRoutineMenu(r) {
+    openSheet(r.name, `
+      <div class="rt-list">${r.exercises.map((x) => { const ex = EX_BY_ID[x.exId]; return ex ? `<p><b>${esc(ex.name)}</b> <span class="muted">${x.sets} × ${esc(x.reps)}${ex.timed ? 's' : ''}${x.ss ? ` · superset ${x.ss}` : ''}</span></p>` : ''; }).join('')}</div>
+      <button class="primary big" data-act="rt-start" data-id="${r.id}">▶ Start this routine</button>
+      <div class="row gap wrap"><button class="pill" data-act="rt-rename" data-id="${r.id}">Rename</button><button class="pill ghost danger" data-act="rt-del" data-id="${r.id}">Delete</button></div>`);
   }
 
   function viewBuilder() {
@@ -383,7 +451,33 @@
         ${ex.timed ? '<span class="w-na"></span><span></span>' : `<input class="w" inputmode="decimal" data-field="w" placeholder="${ex.loaded ? '0' : 'BW'}" value="${esc(st.w)}" aria-label="Weight"><span class="u">${units}</span>`}
         <input class="r" inputmode="numeric" data-field="r" placeholder="${st.max ? 'max' : esc(entry.target.reps)}" value="${esc(st.r)}" aria-label="${ex.timed ? 'Seconds' : 'Reps'}"><span class="u">${ex.timed ? 'sec' : 'reps'}</span>
         <button class="check" data-act="toggle-set" aria-pressed="${st.done}" aria-label="Mark set ${j + 1} done">✓</button>
+        ${prevHtml(entry, ex, j)}
       </div>${effortHtml(entry, i, j)}${st.max && !st.done ? '<p class="fxhint">Max out: as many good reps as you can, then tick it.</p>' : ''}`;
+  }
+  /** What you did on this same set last time; tap to copy it in. */
+  function prevSet(entry, j) {
+    const st = entry.sets[j]; if (st.warm) return null;
+    const last = lastLog(entry.exId); if (!last) return null;
+    const k = entry.sets.slice(0, j).filter((s) => !s.warm).length;
+    return last[k] || null;
+  }
+  /** The working set just before j in this workout, if it's done and j is the next one to do. */
+  function sameSrc(entry, j) {
+    const st = entry.sets[j]; if (st.warm || st.done || st.max) return null;
+    let k = j - 1; while (k >= 0 && entry.sets[k].warm) k--;
+    if (k < 0 || !entry.sets[k].done) return null;
+    return { k, s: entry.sets[k], n: entry.sets.slice(0, k + 1).filter((x) => !x.warm).length };
+  }
+  function prevHtml(entry, ex, j) {
+    const st = entry.sets[j], same = sameSrc(entry, j);
+    if (same) {
+      const txt = ex.timed ? `${same.s.r}s` : `${num(same.s.w) ? same.s.w + ' × ' : ''}${same.s.r}`;
+      return `<button class="prev same" data-act="same-prev" aria-label="Same as set ${same.n}: ${txt}, and mark done">↻ Same as set ${same.n} · <b>${txt}</b> ✓</button>`;
+    }
+    const p = prevSet(entry, j);
+    if (!p || st.done) return '';
+    const txt = ex.timed ? `${p.r}s` : `${p.w ? p.w + ' ' + state.settings.units + ' × ' : ''}${p.r}`;
+    return `<button class="prev" data-act="use-prev" aria-label="Last time: ${txt}. Tap to use">Last time: <b>${txt}</b>${p.max ? ' (max)' : ''}</button>`;
   }
   const FX = { hard: ['Hard', 'No more reps'], ok: ['Just right', '1–2 more'], easy: ['Easy', '3+ more'] };
   /** After a working set is ticked: "could you have done more reps?" (not asked for warm-ups or max sets). */
@@ -402,7 +496,7 @@
       return `<div class="ssblock">
         <div class="hd-text"><p class="who"><b>${tag}</b> <span class="muted small">${MUSCLE_NAME[ex.muscle]}</span></p><h3>${esc(ex.name)}</h3>
         <p class="meta">${esc(equipLabel(ex))} · <b>${en.target.sets} × ${esc(en.target.reps)}${ex.timed ? 's' : ''}</b></p>
-        <p class="last">${esc(lastText(ex))}</p>${whyHtml(en)}${noteHtml(en)}
+        ${lastLog(ex.id) ? '' : `<p class="last">${esc(lastText(ex))}</p>`}${whyHtml(en)}${noteHtml(en)}
         <p class="blk-actions"><label class="restpick">Rest ${restSelect(en.target.rest, `class="restsel" data-xi="${idx}"`)}</label><button class="link" data-act="swap" data-xi="${idx}">Swap</button><button class="link danger" data-act="remove-ex" data-xi="${idx}">Remove</button></p></div>
         <div class="anim" data-ex="${ex.id}" data-act="form-guide" role="button" tabindex="0" aria-label="Open form guide for ${esc(ex.name)}"></div>
       </div>`;
@@ -452,7 +546,7 @@
         <p class="cue">${esc(ex.cue)}</p>
         ${entry.why ? `<p class="why">${(SPORT.get(state.current && state.current.sport && state.current.sport.id) || {}).icon || '★'} ${esc(entry.why)}</p>` : ''}
         ${entry.note ? `<p class="sugg ${entry.nkind}"><span aria-hidden="true">${entry.nkind === 'progress' || entry.nkind === 'reps' ? '▲' : entry.nkind === 'lighter' ? '▼' : entry.nkind === 'estimate' ? '≈' : '='}</span> ${esc(entry.note)}</p>` : ''}
-        <p class="last">${esc(lastTxt)}</p>
+        ${lastLog(ex.id) ? '' : `<p class="last">${esc(lastTxt)}</p>`}
         <div class="sets">${rows}</div>
         <footer>
           <button class="link" data-act="add-set">+ Set</button>
@@ -466,6 +560,10 @@
       </article>`;
   }
 
+  function exProgress(w) {
+    const total = w.exercises.length, done = w.exercises.filter((e) => e.sets.length && e.sets.every((s) => s.done)).length;
+    return { total, done };
+  }
   function progress(w) {
     const total = w.exercises.reduce((t, e) => t + e.sets.length, 0);
     const done = w.exercises.reduce((t, e) => t + e.sets.filter((s) => s.done).length, 0);
@@ -476,18 +574,19 @@
     const w = state.current;
     const { total, done } = progress(w);
     const started = !!w.startedAt;
+    const xp = exProgress(w);
     return `
+      <div class="wbar" role="status" aria-label="Workout progress">
+        <div class="wclock"><span id="elapsed">${started ? fmtClock((Date.now() - w.startedAt) / 1000) : '0:00'}</span><small>${started ? 'elapsed' : 'not started'}</small></div>
+        <div class="wprog"><b id="exProg">${xp.done} of ${xp.total} exercises</b><div class="bar"><i id="barFill" style="width:${total ? (done / total) * 100 : 0}%"></i></div><small id="progressTxt">${done} of ${total} sets done</small></div>
+      </div>
       <section class="card summary">
-        <div class="row between">
-          <div><h2>${esc(titleOf(w.muscles, w.regions))}</h2>
+        <div><h2>${esc(w.routineName || titleOf(w.muscles, w.regions))}</h2>
           <p class="muted">${esc(w.profileName)} · ${GOALS[w.goal]?.label || ''}${w.sport && SPORT.get(w.sport.id) ? ` · ${SPORT.get(w.sport.id).icon} ${esc(SPORT.get(w.sport.id).name)}` : ''}</p></div>
-          <div class="clock"><span id="elapsed">${started ? fmtClock((Date.now() - w.startedAt) / 1000) : '0:00'}</span><small>${started ? 'elapsed' : 'not started'}</small></div>
-        </div>
-        <div class="bar"><i id="barFill" style="width:${total ? (done / total) * 100 : 0}%"></i></div>
-        <p class="muted" id="progressTxt">${done} of ${total} sets done</p>
         ${started ? '' : '<button class="primary big" data-act="start-workout">▶ Start workout</button>'}
         <div class="row gap">
           ${done === 0 ? '<button class="pill" data-act="regen">↻ Regenerate</button>' : ''}
+          ${w.routineId ? '' : '<button class="pill" data-act="rt-save-cur">☆ Save as routine</button>'}
           <button class="pill ghost" data-act="discard">Discard</button>
         </div>
       </section>
@@ -560,7 +659,8 @@
         <summary><span><b>${esc(titleOf(w.muscles, w.regions))}</b>
           <small>${fmtDate(w.date)} · ${esc(w.profileName || '')}${dur ? ' · ' + dur : ''}${w.kcal ? ' · ~' + fmtNum(w.kcal) + ' kcal' : ''}</small></span>
           <span class="vol">${setsOf(w)} sets<small>${fmtNum(volumeOf(w))} ${state.settings.units}</small></span></summary>
-        ${w.exercises.map((e) => `<div class="hx"><b>${esc(e.name)}</b><span>${e.sets.filter((s) => !s.warm).map((s) => (e.timed ? `${s.r}s` : `${s.w ? s.w + '×' : ''}${s.r}`)).join(' · ')}</span></div>`).join('')}
+        ${w.exercises.map((e) => { const ws = e.sets.filter((s) => !s.warm), fx = (ws.find((s) => s.fx) || {}).fx;
+          return `<div class="hx"><b>${esc(e.name)}${fx ? ` <span class="fxtag fx-${fx}">${FX[fx][0]}</span>` : ''}</b><span>${ws.map((s) => `${s.max ? '★' : ''}${e.timed ? `${s.r}s` : `${s.w ? s.w + '×' : ''}${s.r}`}`).join(' · ')}</span></div>`; }).join('')}
         ${w.sent ? '<span class="badge">In Health</span>' : `<button class="link" data-act="hist-send" data-id="${w.id}">Send to Apple Health</button>`}
         <button class="link danger" data-act="hist-del" data-id="${w.id}">Delete workout</button>
       </details>`; } }))
@@ -602,9 +702,13 @@
       ${cards}
       <section class="card">
         <h2>Settings</h2>
+        <div class="field"><label>Appearance</label>
+          <div class="seg">${[['auto', 'Match phone'], ['dark', 'Dark'], ['light', 'Light']].map(([v, l]) => `<button data-act="set-theme" data-v="${v}" class="${(s.theme || 'auto') === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>
         <div class="field"><label>Weight units</label>
           <div class="seg"><button data-act="set-units" data-v="lb" class="${s.units === 'lb' ? 'on' : ''}">lb</button><button data-act="set-units" data-v="kg" class="${s.units === 'kg' ? 'on' : ''}">kg</button></div></div>
         <label class="toggle"><input type="checkbox" id="restToggle" ${s.restTimer ? 'checked' : ''}> <span>Auto-start rest timer after each set</span></label>
+        <label class="toggle"><input type="checkbox" id="alertToggle" ${s.restAlert !== false ? 'checked' : ''}> <span>Beep (3-2-1) and vibrate when rest ends</span></label>
+        <label class="toggle"><input type="checkbox" id="wakeToggle" ${s.wakeLock !== false ? 'checked' : ''}> <span>Keep the screen on during a workout</span></label>
         <div class="row gap wrap">
           <button class="pill" data-act="export">Export backup</button>
           <button class="pill" data-act="import">Import backup</button>
@@ -615,6 +719,11 @@
       </section>`;
   }
 
+  function applyTheme() {
+    const th = state.settings.theme;
+    if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; else delete document.documentElement.dataset.theme;
+  }
+  applyTheme();
   function render() {
     const y = window.scrollY;
     $('#profileChip').textContent = profile().name;
@@ -622,7 +731,7 @@
     $('#main').innerHTML = { train: viewTrain, cardio: C.view, library: viewLibrary, history: viewHistory, gear: viewGear }[ui.tab]();
     window.scrollTo(0, y);
     if (ui.tab === 'train') { WPA.hydrate($('#main')); markNext(); }
-    tick();
+    tick(); keepAwake();
   }
 
   /* ───────────── sheets (modals) ───────────── */
@@ -863,6 +972,9 @@
       </div>
       ${rec.prs && rec.prs.length ? `<div class="card prs"><h3>🏆 New personal ${rec.prs.length > 1 ? 'records' : 'record'}</h3>${rec.prs.map((p) => `<p><b>${esc(p.name)}</b> — ${p.w} ${state.settings.units} × ${p.r}</p>`).join('')}</div>` : ''}
       <p class="muted">Saved to your history. Next time, the app will suggest what to lift based on this.</p>
+      ${ui.lastPlan && ui.lastPlan.routineId && state.routines.some((r) => r.id === ui.lastPlan.routineId)
+        ? `<button class="pill wide" data-act="rt-update">Update “${esc(ui.lastPlan.routineName)}” with today’s exercises</button>`
+        : ui.lastPlan ? '<button class="pill wide" data-act="rt-save-last">☆ Save as a routine to repeat</button>' : ''}
       <button class="primary big" data-act="close-sheet">Done</button>`);
   }
 
@@ -872,9 +984,56 @@
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (navigator.audioSession && navigator.audioSession.type !== 'transient') navigator.audioSession.type = 'transient';   // Safari: short alert sound
     } catch (e) { /* no audio */ }
   }
+  /** A light tap: vibration where supported, and the iOS 18+ switch-control haptic in Safari. */
+  let hapt = null;
+  function haptic() {
+    try {
+      if (navigator.vibrate) { navigator.vibrate(12); return; }
+      if (!hapt) { hapt = document.createElement('label'); hapt.setAttribute('aria-hidden', 'true'); hapt.style.cssText = 'position:fixed;left:-99px;top:0;opacity:0;pointer-events:none';
+        hapt.innerHTML = '<input type="checkbox" switch tabindex="-1">'; document.body.appendChild(hapt); }
+      hapt.click();
+    } catch (e) { /* no haptics */ }
+  }
+  /** Short blip for the 3-2-1 countdown. */
+  function blip() {
+    if (!audioCtx || state.settings.restAlert === false) return;
+    try {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination); o.frequency.value = 660;
+      g.gain.setValueAtTime(0.18, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+      o.start(); o.stop(audioCtx.currentTime + 0.12);
+    } catch (e) { /* ignore */ }
+  }
+  /* Keep the screen awake during a workout so the rest timer keeps running and can sound. */
+  let wakeLock = null, wakeBusy = false;
+  async function keepAwake() {
+    const want = !!(state.current && state.current.startedAt) && state.settings.wakeLock !== false && document.visibilityState === 'visible';
+    try {
+      if (want && !wakeLock && !wakeBusy && 'wakeLock' in navigator) {
+        wakeBusy = true; wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } else if (!want && wakeLock) { const l = wakeLock; wakeLock = null; await l.release(); }
+    } catch (e) { wakeLock = null; } finally { wakeBusy = false; }
+  }
+  document.addEventListener('visibilitychange', () => { keepAwake(); if (!document.hidden) tick(); });
+  /* Inside the iPhone app: a lock-screen notification when rest ends. */
+  const capN = () => (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor : null);
+  let LN = null;
+  async function restNotify(at) {
+    const cap = capN(); if (!cap) return;
+    try {
+      LN = LN || cap.registerPlugin('LocalNotifications');
+      await LN.cancel({ notifications: [{ id: 4242 }] });
+      if (!at || state.settings.restAlert === false) return;
+      if (!state.settings.lnAsked) { await LN.requestPermissions(); state.settings.lnAsked = true; save(); }
+      await LN.schedule({ notifications: [{ id: 4242, title: 'Rest over', body: 'Time for your next set 💪', schedule: { at: new Date(at) }, sound: 'default' }] });
+    } catch (e) { /* plugin not installed */ }
+  }
   function beep() {
+    if (state.settings.restAlert === false) return;
     try {
       if (audioCtx) {
         const o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -935,7 +1094,8 @@
   function startRest(sec) {
     if (!state.settings.restTimer || !sec) return;
     ui.restTotal = sec;
-    ui.restEnd = Date.now() + sec * 1000;
+    ui.restEnd = Date.now() + sec * 1000; ui.restBlip = 0;
+    restNotify(ui.restEnd);
     tick();
   }
   function tick() {
@@ -945,7 +1105,14 @@
     const bar = $('#rest');
     if (ui.restEnd) {
       const left = Math.ceil((ui.restEnd - Date.now()) / 1000);
-      if (left <= 0) { ui.restEnd = 0; beep(); bar.hidden = true; return; }
+      if (left <= 0) {
+        const late = Math.round((Date.now() - ui.restEnd) / 1000);
+        ui.restEnd = 0; beep(); setTimeout(beep, 650); bar.hidden = true;
+        toast(late > 5 ? `Rest over (${fmtClock(late)} ago) — next set` : 'Rest over — next set 💪');
+        document.body.classList.add('restdone'); setTimeout(() => document.body.classList.remove('restdone'), 1600);
+        return;
+      }
+      if (left <= 3 && ui.restBlip !== left) { ui.restBlip = left; blip(); }
       bar.hidden = false;
       $('#restTime').textContent = fmtClock(left);
       $('#restFill').style.width = `${(left / ui.restTotal) * 100}%`;
@@ -969,6 +1136,8 @@
     const f = $('#barFill'), t = $('#progressTxt');
     if (f) f.style.width = `${total ? (done / total) * 100 : 0}%`;
     if (t) t.textContent = `${done} of ${total} sets done`;
+    const xp = exProgress(w), x = $('#exProg'); if (x) x.textContent = `${xp.done} of ${xp.total} exercises`;
+    const ck = $('.wclock small'); if (ck && w.startedAt) ck.textContent = 'elapsed';
   }
 
   function finishWorkout() {
@@ -989,6 +1158,8 @@
     if (w.sport) rec.sport = w.sport;
     rec.prs = PROG.newPRs(state.history, rec, EX_BY_ID);
     state.history.unshift(rec);
+    if (w.routineId) { const r = state.routines.find((x) => x.id === w.routineId); if (r) r.lastUsed = endedAt; }
+    ui.lastPlan = w;
     state.current = null;
     ui.restEnd = 0;
     save(); render(); sheetSummary(rec);
@@ -1067,11 +1238,37 @@
       case 'finish': finishWorkout(); break;
 
       /* sets & exercises */
+      case 'rt-start': { const r = state.routines.find((x) => x.id === d.id); if (!r) break;
+        if (state.current && !confirm('Replace the workout you have open?')) break;
+        closeSheet(); startRoutine(r); break; }
+      case 'rt-menu': { const r = state.routines.find((x) => x.id === d.id); if (r) sheetRoutineMenu(r); break; }
+      case 'rt-rename': { const r = state.routines.find((x) => x.id === d.id); if (!r) break; const n = (prompt('Rename routine', r.name) || '').trim(); if (n) { r.name = n; save(); closeSheet(); render(); } break; }
+      case 'rt-del': { const r = state.routines.find((x) => x.id === d.id); if (r && confirm(`Delete “${r.name}”?`)) { state.routines = state.routines.filter((x) => x !== r); save(); closeSheet(); render(); } break; }
+      case 'rt-save-cur': if (w) saveRoutinePrompt(w); break;
+      case 'rt-save-last': if (ui.lastPlan) { saveRoutinePrompt(ui.lastPlan); closeSheet(); render(); } break;
+      case 'rt-update': { const p = ui.lastPlan, k = p && state.routines.findIndex((x) => x.id === p.routineId); if (k >= 0) { const old = state.routines[k], nr = routineFrom(p, old.name); nr.id = old.id; nr.created = old.created; nr.lastUsed = Date.now(); state.routines[k] = nr; save(); toast('Routine updated'); closeSheet(); render(); } break; }
+      case 'go-build': { const b = $('.builder'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' }); break; }
+      case 'set-theme': state.settings.theme = d.v; save(); applyTheme(); render(); break;
+      case 'same-prev': {
+        const row = t.closest('.set'), j = +row.dataset.j, en = w.exercises[i], src = sameSrc(en, j); if (!src) break;
+        const s = en.sets[j]; s.w = src.s.w; s.r = src.s.r;
+        const wi = row.querySelector('input.w'), ri = row.querySelector('input.r'); if (wi) wi.value = s.w; if (ri) ri.value = s.r;
+        row.querySelector('.check').click(); break;
+      }
+      case 'use-prev': {
+        const row = t.closest('.set'), j = +row.dataset.j, s = w.exercises[i].sets[j], p = prevSet(w.exercises[i], j); if (!p) break;
+        const ex = EX_BY_ID[w.exercises[i].exId];
+        if (!ex.timed) s.w = p.w ? String(p.w) : s.w;
+        s.r = String(p.r); save();
+        const wi = row.querySelector('input.w'), ri = row.querySelector('input.r'); if (wi) wi.value = s.w; if (ri) ri.value = s.r;
+        break;
+      }
       case 'toggle-set': {
         const j = +t.closest('.set').dataset.j;
         const s = w.exercises[i].sets[j];
         if (!s.done && s.max && !(num(s.r) > 0)) { toast('Enter how many reps you got on the max set'); const inp = t.closest('.set').querySelector('input.r'); if (inp) inp.focus(); break; }
         s.done = !s.done;
+        if (s.done) haptic();
         if (s.done) {
           if (!w.startedAt) w.startedAt = Date.now();
           if (!String(s.r).trim()) s.r = String(parseInt(w.exercises[i].target.reps, 10) || 10);
@@ -1109,6 +1306,7 @@
         break;
       }
       case 'fx': {
+        haptic();
         const row = t.closest('.fx'); const ei = +row.dataset.i, en = state.current.exercises[ei]; en.fx = d.v; save();
         row.outerHTML = effortHtml(en, ei, +row.dataset.j); break;
       }
@@ -1277,8 +1475,8 @@
       case 'close-sheet': closeSheet(); break;
 
       /* rest timer */
-      case 'rest-add': if (ui.restEnd) { ui.restEnd += 15000; ui.restTotal += 15; tick(); } break;
-      case 'rest-skip': ui.restEnd = 0; tick(); break;
+      case 'rest-add': if (ui.restEnd) { ui.restEnd += 15000; ui.restTotal += 15; ui.restBlip = 0; restNotify(ui.restEnd); tick(); } break;
+      case 'rest-skip': ui.restEnd = 0; restNotify(0); tick(); break;
 
       /* data */
       case 'export':
@@ -1356,6 +1554,8 @@
       const en = state.current.exercises[+t.dataset.xi]; if (!en) return;
       en.target.rest = +t.value; save(); toast(`Rest ${restLabel(en.target.rest)} for ${EX_BY_ID[en.exId].name}`);
     }
+    else if (t.id === 'alertToggle') { state.settings.restAlert = t.checked; save(); if (t.checked) { unlockAudio(); beep(); } }
+    else if (t.id === 'wakeToggle') { state.settings.wakeLock = t.checked; save(); keepAwake(); }
     else if (t.id === 'restToggle') { state.settings.restTimer = t.checked; save(); if (!t.checked) { ui.restEnd = 0; tick(); } }
     else if (t.dataset && t.dataset.equip && ui.draft) {
       const eq = ui.draft.equipment, k = eq.indexOf(t.dataset.equip);

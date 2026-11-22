@@ -118,6 +118,14 @@ Library → **Create your own exercise** (or "Can't find it?" in the Add-exercis
 ## TAG Functional Trainer and animation fixes
 Pick **TAG Functional Trainer (dual cable + pull-up bar)** under Machines & cables (or the "TAG Functional Trainer" preset when editing a profile). It counts as a cable machine plus a pull-up bar, and unlocks 40 extra cable and pull-up-bar moves (single-arm presses and rows, half-kneeling chops and presses, ankle-strap hip work, Pallof variations, pull-up grips). Moves like side lunge, hip abduction/adduction and shoulder rotation also have a **Front view** toggle in the form guide (the engine now supports bending legs and sideways body shift in front view). New hand-drawn animations replace borrowed ones for side planks, kneeling push-ups, side and curtsy lunges, clamshells, shoulder rotations and standing hip flexion/abduction.
 
+## Workout screen, routines and rest alerts
+- **Today card** at the top of Train: date, workouts this week, your last session, and one big button (today's planned day, your most recent routine, or "Build today's workout").
+- **Saved routines:** tap **☆ Save as routine** on a workout (or after finishing). Routines appear on Train with **▶ Start**; weights come from your last session. Finishing a routine offers to update it; ⋯ renames or deletes.
+- **Sticky progress bar** while training: elapsed time, "3 of 6 exercises" and a progress bar.
+- **Last time** under each set shows what you did on that set last session (tap to copy it in). Once a set is done, the next one offers **↻ Same as set N ✓**, which copies and ticks it in one tap. Checkmarks and number boxes are larger.
+- **Rest alerts:** 3-2-1 blips and a double beep plus a green flash when rest ends; the screen stays on during a workout (toggle in Me → Settings). In the iPhone app (`native/`), a lock-screen notification fires when rest ends (`@capacitor/local-notifications`).
+- **Appearance:** Match phone, Dark or Light (Me → Settings). Light haptic tap on ticked sets (Android vibration; iOS 18+ Safari switch haptic).
+
 ## Weight stacks and even supersets
 In **Me → profile → Edit**, **Machine weight stack** takes the lightest plate, the step between plates and the heaviest. Selectorized machines and cables then suggest only weights that exist on the stack. The Gym profile starts with the Life Fitness stack (2.5, 7.5 … 97.5). Supersets always have the same number of working sets on both lifts, whether generated or linked by hand.
 
