@@ -487,8 +487,9 @@ body.restdone #main::before { content: ''; position: fixed; inset: 0; pointer-ev
 .recovery summary { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; cursor: pointer; list-style: none; }
 .recovery summary::-webkit-details-marker { display: none; }
 .recmap { width: 100%; max-width: 360px; align-self: center; height: auto; }
-.recmap .rb-base { fill: var(--card2); stroke: var(--card2); }
-.recmap .rm { cursor: pointer; stroke: var(--card); stroke-width: 1.2; transition: opacity .2s; }
+.recmap .rb-base { fill: color-mix(in srgb, var(--text) 9%, var(--card)); stroke: none; }
+.recmap .groove { fill: none; stroke: var(--card); stroke-width: .9; stroke-linecap: round; pointer-events: none; opacity: .75; }
+.recmap .rm { cursor: pointer; stroke: var(--card); stroke-width: 1.1; stroke-linejoin: round; }
 .recmap .rm.sel { stroke: var(--text); stroke-width: 1.8; }
 .recmap text { fill: var(--muted); font-size: 9px; font-weight: 700; }
 .recovery .legend { display: flex; justify-content: center; gap: 14px; font-size: .75rem; color: var(--muted); }

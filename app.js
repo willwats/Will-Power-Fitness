@@ -304,40 +304,13 @@
         reps: en.target.reps, rest: en.target.rest, ...(en.ss ? { ss: en.ss, ssPos: en.ssPos } : {}) })) };
   }
   /* ───────────── recovery map ───────────── */
-  // Simple front/back body outline; each muscle shape is coloured by how recovered it is.
-  const BODY_SHAPES = {
-    front: [
-      ['shoulders', '<ellipse cx="33" cy="45" rx="8" ry="7"/><ellipse cx="77" cy="45" rx="8" ry="7"/>'],
-      ['chest', '<path d="M38 44 Q46 40 54 43 L54 58 Q45 61 38 55 Z"/><path d="M72 44 Q64 40 56 43 L56 58 Q65 61 72 55 Z"/>'],
-      ['biceps', '<ellipse cx="29" cy="63" rx="5" ry="10"/><ellipse cx="81" cy="63" rx="5" ry="10"/>'],
-      ['forearms', '<ellipse cx="25" cy="86" rx="4.5" ry="11"/><ellipse cx="85" cy="86" rx="4.5" ry="11"/>'],
-      ['core', '<rect x="46" y="61" width="18" height="34" rx="5"/>'],
-      ['quads', '<path d="M40 103 Q47 99 54 103 L53 135 Q47 141 42 135 Z"/><path d="M70 103 Q63 99 56 103 L57 135 Q63 141 68 135 Z"/>'],
-      ['calves', '<ellipse cx="46" cy="162" rx="4.5" ry="13"/><ellipse cx="64" cy="162" rx="4.5" ry="13"/>'],
-    ],
-    back: [
-      ['shoulders', '<ellipse cx="33" cy="45" rx="8" ry="7"/><ellipse cx="77" cy="45" rx="8" ry="7"/>'],
-      ['back', '<path d="M41 39 L69 39 L72 52 L66 82 L55 88 L44 82 L38 52 Z"/>'],
-      ['triceps', '<ellipse cx="29" cy="63" rx="5" ry="10"/><ellipse cx="81" cy="63" rx="5" ry="10"/>'],
-      ['forearms', '<ellipse cx="25" cy="86" rx="4.5" ry="11"/><ellipse cx="85" cy="86" rx="4.5" ry="11"/>'],
-      ['glutes', '<ellipse cx="47" cy="100" rx="9" ry="9"/><ellipse cx="63" cy="100" rx="9" ry="9"/>'],
-      ['hamstrings', '<path d="M40 110 Q47 107 54 110 L53 138 Q47 143 42 138 Z"/><path d="M70 110 Q63 107 56 110 L57 138 Q63 143 68 138 Z"/>'],
-      ['calves', '<ellipse cx="46" cy="161" rx="6" ry="14"/><ellipse cx="64" cy="161" rx="6" ry="14"/>'],
-    ],
-  };
-  const BODY_BASE = `<circle cx="55" cy="18" r="10"/><rect x="51" y="26" width="8" height="8" rx="2"/>
-    <path d="M30 40 Q55 32 80 40 L74 98 L36 98 Z"/>
-    <path d="M27 42 L21 98 M83 42 L89 98" stroke-width="11" stroke-linecap="round" fill="none"/>
-    <path d="M47 96 L45 178 M63 96 L65 178" stroke-width="17" stroke-linecap="round" fill="none"/>`;
   const recStatus = () => RECOVERY.status(state.history, EX_BY_ID);
   function recoveryCard() {
     if (!state.history.length) return '';
     const st = recStatus();
     const order = MUSCLES.map((m) => m.id).sort((x, y) => st[x].pct - st[y].pct);
     const pick = ui.recM && st[ui.recM] ? ui.recM : order[0];
-    const fig = (side, dx) => `<g transform="translate(${dx} 0)"><g class="rb-base">${BODY_BASE}</g>
-      ${BODY_SHAPES[side].map(([m, shp]) => `<g class="rm ${m === pick ? 'sel' : ''}" data-act="rec-pick" data-m="${m}" style="fill:${RECOVERY.color(st[m].pct)}" role="button" tabindex="0" aria-label="${MUSCLE_NAME[m]} ${st[m].pct}% recovered">${shp}</g>`).join('')}
-      <text x="55" y="196" text-anchor="middle">${side === 'front' ? 'Front' : 'Back'}</text></g>`;
+    const fig = (side, dx) => ANATOMY.figure(side, dx, (m) => RECOVERY.color(st[m].pct), pick, (m) => MUSCLE_NAME[m], (m) => st[m].pct);
     const r = st[pick], ago = r.lastAt ? Math.round((Date.now() - r.lastAt) / 3600e3) : null;
     const agoTxt = ago === null ? 'not trained this week' : ago < 24 ? `trained ${ago}h ago` : `trained ${Math.round(ago / 24)}d ago`;
     const ready = r.pct >= 95 ? 'Ready to train' : `About ${r.readyIn < 24 ? r.readyIn + 'h' : Math.round(r.readyIn / 24) + ' day' + (Math.round(r.readyIn / 24) > 1 ? 's' : '')} until fully recovered`;
@@ -345,7 +318,7 @@
     const fresh = order.filter((m) => st[m].pct >= 90).length;
     return `<details class="card recovery" ${ui.recOpen === false ? '' : 'open'} id="recCard">
       <summary><h2>Recovery</h2><span class="muted small">${fresh} of ${MUSCLES.length} muscles fresh</span></summary>
-      <svg class="recmap" viewBox="0 0 220 202" role="group" aria-label="Recovery map">${fig('front', 0)}${fig('back', 110)}</svg>
+      <svg class="recmap" viewBox="${ANATOMY.VIEWBOX}" role="group" aria-label="Recovery map">${fig('front', 0)}${fig('back', 110)}</svg>
       <div class="legend"><span><i style="background:${RECOVERY.color(15)}"></i>Recovering</span><span><i style="background:${RECOVERY.color(70)}"></i>Almost</span><span><i style="background:${RECOVERY.color(100)}"></i>Fresh</span></div>
       <div class="recinfo">
         <div><b>${MUSCLE_NAME[pick]} · ${r.pct}%</b><small>${agoTxt}${r.sets ? ` · ${r.sets} sets` : ''} · ${ready}</small></div>

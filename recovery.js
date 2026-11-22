@@ -38,7 +38,7 @@ const RECOVERY = (() => {
 
   const level = (pct) => (pct >= 90 ? 'fresh' : pct >= 60 ? 'mid' : 'hot');
   /** Red (0%) → amber → green (100%). */
-  const color = (pct) => `hsl(${Math.round(clamp(pct, 0, 100) * 1.25)}, 72%, 47%)`;
+  const color = (pct) => `hsl(${Math.round(clamp(pct, 0, 100) * 1.22)}, 58%, 46%)`;
 
   return { BASE, status, loads, level, color };
 })();
