@@ -293,7 +293,7 @@
     if (state.current) return viewWorkout();
     if (ui.trainMode === 'cardio') return C.modeSwitch() + C.trainView();
     const planSet = P.isSet();
-    return C.modeSwitch() + C.liveBanner() + todayCard() + viewRoutines() + (planSet ? P.trainCard() : '') + viewBuilder()
+    return C.modeSwitch() + C.liveBanner() + todayCard() + recoveryCard() + viewRoutines() + (planSet ? P.trainCard() : '') + viewBuilder()
       + `<h2 class="section">Your day</h2>` + C.todayMini() + B.trainBanner() + (planSet ? "" : P.trainCard());
   }
 
@@ -303,6 +303,58 @@
       exercises: w.exercises.filter((en) => EX_BY_ID[en.exId]).map((en) => ({ exId: en.exId, sets: en.sets.filter((s) => !s.warm).length || en.target.sets,
         reps: en.target.reps, rest: en.target.rest, ...(en.ss ? { ss: en.ss, ssPos: en.ssPos } : {}) })) };
   }
+  /* ───────────── recovery map ───────────── */
+  // Simple front/back body outline; each muscle shape is coloured by how recovered it is.
+  const BODY_SHAPES = {
+    front: [
+      ['shoulders', '<ellipse cx="33" cy="45" rx="8" ry="7"/><ellipse cx="77" cy="45" rx="8" ry="7"/>'],
+      ['chest', '<path d="M38 44 Q46 40 54 43 L54 58 Q45 61 38 55 Z"/><path d="M72 44 Q64 40 56 43 L56 58 Q65 61 72 55 Z"/>'],
+      ['biceps', '<ellipse cx="29" cy="63" rx="5" ry="10"/><ellipse cx="81" cy="63" rx="5" ry="10"/>'],
+      ['forearms', '<ellipse cx="25" cy="86" rx="4.5" ry="11"/><ellipse cx="85" cy="86" rx="4.5" ry="11"/>'],
+      ['core', '<rect x="46" y="61" width="18" height="34" rx="5"/>'],
+      ['quads', '<path d="M40 103 Q47 99 54 103 L53 135 Q47 141 42 135 Z"/><path d="M70 103 Q63 99 56 103 L57 135 Q63 141 68 135 Z"/>'],
+      ['calves', '<ellipse cx="46" cy="162" rx="4.5" ry="13"/><ellipse cx="64" cy="162" rx="4.5" ry="13"/>'],
+    ],
+    back: [
+      ['shoulders', '<ellipse cx="33" cy="45" rx="8" ry="7"/><ellipse cx="77" cy="45" rx="8" ry="7"/>'],
+      ['back', '<path d="M41 39 L69 39 L72 52 L66 82 L55 88 L44 82 L38 52 Z"/>'],
+      ['triceps', '<ellipse cx="29" cy="63" rx="5" ry="10"/><ellipse cx="81" cy="63" rx="5" ry="10"/>'],
+      ['forearms', '<ellipse cx="25" cy="86" rx="4.5" ry="11"/><ellipse cx="85" cy="86" rx="4.5" ry="11"/>'],
+      ['glutes', '<ellipse cx="47" cy="100" rx="9" ry="9"/><ellipse cx="63" cy="100" rx="9" ry="9"/>'],
+      ['hamstrings', '<path d="M40 110 Q47 107 54 110 L53 138 Q47 143 42 138 Z"/><path d="M70 110 Q63 107 56 110 L57 138 Q63 143 68 138 Z"/>'],
+      ['calves', '<ellipse cx="46" cy="161" rx="6" ry="14"/><ellipse cx="64" cy="161" rx="6" ry="14"/>'],
+    ],
+  };
+  const BODY_BASE = `<circle cx="55" cy="18" r="10"/><rect x="51" y="26" width="8" height="8" rx="2"/>
+    <path d="M30 40 Q55 32 80 40 L74 98 L36 98 Z"/>
+    <path d="M27 42 L21 98 M83 42 L89 98" stroke-width="11" stroke-linecap="round" fill="none"/>
+    <path d="M47 96 L45 178 M63 96 L65 178" stroke-width="17" stroke-linecap="round" fill="none"/>`;
+  const recStatus = () => RECOVERY.status(state.history, EX_BY_ID);
+  function recoveryCard() {
+    if (!state.history.length) return '';
+    const st = recStatus();
+    const order = MUSCLES.map((m) => m.id).sort((x, y) => st[x].pct - st[y].pct);
+    const pick = ui.recM && st[ui.recM] ? ui.recM : order[0];
+    const fig = (side, dx) => `<g transform="translate(${dx} 0)"><g class="rb-base">${BODY_BASE}</g>
+      ${BODY_SHAPES[side].map(([m, shp]) => `<g class="rm ${m === pick ? 'sel' : ''}" data-act="rec-pick" data-m="${m}" style="fill:${RECOVERY.color(st[m].pct)}" role="button" tabindex="0" aria-label="${MUSCLE_NAME[m]} ${st[m].pct}% recovered">${shp}</g>`).join('')}
+      <text x="55" y="196" text-anchor="middle">${side === 'front' ? 'Front' : 'Back'}</text></g>`;
+    const r = st[pick], ago = r.lastAt ? Math.round((Date.now() - r.lastAt) / 3600e3) : null;
+    const agoTxt = ago === null ? 'not trained this week' : ago < 24 ? `trained ${ago}h ago` : `trained ${Math.round(ago / 24)}d ago`;
+    const ready = r.pct >= 95 ? 'Ready to train' : `About ${r.readyIn < 24 ? r.readyIn + 'h' : Math.round(r.readyIn / 24) + ' day' + (Math.round(r.readyIn / 24) > 1 ? 's' : '')} until fully recovered`;
+    const sel = state.selected.includes(pick);
+    const fresh = order.filter((m) => st[m].pct >= 90).length;
+    return `<details class="card recovery" ${ui.recOpen === false ? '' : 'open'} id="recCard">
+      <summary><h2>Recovery</h2><span class="muted small">${fresh} of ${MUSCLES.length} muscles fresh</span></summary>
+      <svg class="recmap" viewBox="0 0 220 202" role="group" aria-label="Recovery map">${fig('front', 0)}${fig('back', 110)}</svg>
+      <div class="legend"><span><i style="background:${RECOVERY.color(15)}"></i>Recovering</span><span><i style="background:${RECOVERY.color(70)}"></i>Almost</span><span><i style="background:${RECOVERY.color(100)}"></i>Fresh</span></div>
+      <div class="recinfo">
+        <div><b>${MUSCLE_NAME[pick]} · ${r.pct}%</b><small>${agoTxt}${r.sets ? ` · ${r.sets} sets` : ''} · ${ready}</small></div>
+        <button class="pill ${sel ? 'on' : ''}" data-act="toggle-muscle" data-m="${pick}">${sel ? '✓ In workout' : '＋ Train it'}</button>
+      </div>
+      <p class="muted small">An estimate from your logged sets: bigger muscles and more sets take longer. Tap a muscle for details.</p>
+    </details>`;
+  }
+
   function todayCard() {
     const now = Date.now(), sug = P.isSet() ? PLAN.suggestToday(state, now) : null;
     const last = state.history[0];
@@ -371,11 +423,12 @@
     const unlocked = EXERCISES.filter((e) => isAvailable(e, owned)).length;
     const s = state.settings;
 
+    const rst = recStatus();
     const chips = MUSCLES.map((m) => {
       const count = poolCount(m.id, owned);
-      const d = daysSince(m.id);
-      const rec = d === null ? 'fresh' : d >= 3 ? 'fresh' : d === 2 ? 'mid' : 'hot';
-      const ago = d === null ? '' : d === 0 ? ' · today' : ` · ${d}d ago`;
+      const d = daysSince(m.id), pct = rst[m.id] ? rst[m.id].pct : 100;
+      const rec = RECOVERY.level(pct);
+      const ago = pct < 95 ? ` · ${pct}% recovered` : d === null ? '' : d === 0 ? ' · today' : ` · ${d}d ago`;
       const on = selected.includes(m.id);
       return `<button class="chip ${on ? 'on' : ''}" data-act="toggle-muscle" data-m="${m.id}" aria-pressed="${on}" ${count ? '' : 'disabled'}>
         <span class="dot ${rec}"></span><b>${m.name}</b><small>${count ? `${count} exercises${ago}` : 'no gear for this'}</small></button>`;
@@ -1247,6 +1300,7 @@
       case 'rt-save-cur': if (w) saveRoutinePrompt(w); break;
       case 'rt-save-last': if (ui.lastPlan) { saveRoutinePrompt(ui.lastPlan); closeSheet(); render(); } break;
       case 'rt-update': { const p = ui.lastPlan, k = p && state.routines.findIndex((x) => x.id === p.routineId); if (k >= 0) { const old = state.routines[k], nr = routineFrom(p, old.name); nr.id = old.id; nr.created = old.created; nr.lastUsed = Date.now(); state.routines[k] = nr; save(); toast('Routine updated'); closeSheet(); render(); } break; }
+      case 'rec-pick': { ui.recM = d.m; const c = $('#recCard'); if (c) c.outerHTML = recoveryCard(); break; }
       case 'go-build': { const b = $('.builder'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' }); break; }
       case 'set-theme': state.settings.theme = d.v; save(); applyTheme(); render(); break;
       case 'same-prev': {
@@ -1584,7 +1638,7 @@
   });
 
   // library items only mount their animation once opened
-  document.addEventListener('toggle', (ev) => { if (ev.target.id === 'opts') ui.optsOpen = ev.target.open; else if (ev.target.open && ev.target.classList.contains('lib')) WPA.hydrate(ev.target); }, true);
+  document.addEventListener('toggle', (ev) => { if (ev.target.id === 'opts') ui.optsOpen = ev.target.open; else if (ev.target.id === 'recCard') ui.recOpen = ev.target.open; else if (ev.target.open && ev.target.classList.contains('lib')) WPA.hydrate(ev.target); }, true);
 
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && !$('#sheet').hidden) closeSheet();

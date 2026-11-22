@@ -118,6 +118,9 @@ Library → **Create your own exercise** (or "Can't find it?" in the Add-exercis
 ## TAG Functional Trainer and animation fixes
 Pick **TAG Functional Trainer (dual cable + pull-up bar)** under Machines & cables (or the "TAG Functional Trainer" preset when editing a profile). It counts as a cable machine plus a pull-up bar, and unlocks 40 extra cable and pull-up-bar moves (single-arm presses and rows, half-kneeling chops and presses, ankle-strap hip work, Pallof variations, pull-up grips). Moves like side lunge, hip abduction/adduction and shoulder rotation also have a **Front view** toggle in the form guide (the engine now supports bending legs and sideways body shift in front view). New hand-drawn animations replace borrowed ones for side planks, kneeling push-ups, side and curtsy lunges, clamshells, shoulder rotations and standing hip flexion/abduction.
 
+## Recovery map
+The Train tab shows a front and back body outline, each muscle coloured from red (still recovering) to green (fresh). The estimate comes from your logged sets: each muscle has a base recovery time (about 3 days for chest, back and legs; 2 for arms and calves; 1½ for core and forearms), more sets stretch it, and secondary muscles count half. Tap a muscle to see its %, when you last trained it and how long until it's fully recovered, and **＋ Train it** adds it to today's workout. The muscle chips in the builder show the same % while a muscle is recovering. Logic lives in `recovery.js`.
+
 ## Workout screen, routines and rest alerts
 - **Today card** at the top of Train: date, workouts this week, your last session, and one big button (today's planned day, your most recent routine, or "Build today's workout").
 - **Saved routines:** tap **☆ Save as routine** on a workout (or after finishing). Routines appear on Train with **▶ Start**; weights come from your last session. Finishing a routine offers to update it; ⋯ renames or deletes.
