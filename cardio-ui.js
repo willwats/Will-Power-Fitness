@@ -212,12 +212,12 @@ const WPC = (ctx) => {
         <li>Add <b>Copy to Clipboard</b>. Allow Health access when asked.</li>
       </ol>
       <h3>Apple Watch / Fitness workouts</h3>
-      <p class="muted small">To bring in runs, walks and other workouts your Watch recorded (including ones from earlier days), add these to the same Shortcut, before the <b>Copy to Clipboard</b> step:</p>
+      <p class="muted small">To bring in runs, walks and other workouts your Watch recorded (including ones from earlier days), add these to the same Shortcut, <b>above</b> the Text action that starts with <code>#health</code> (drag them up if needed):</p>
       <ol class="muted small">
         <li>Add <b>Find Health Samples</b>: Type <i>Workouts</i>, <i>Start Date is in the last 14 days</i>.</li>
         <li>Add <b>Repeat with Each</b> (it uses those workouts). Inside the repeat, add a <b>Text</b> action:<br><code>&amp;wtype=[Workout Type]&amp;wmin=[Duration]&amp;wkcal=[Active Energy]&amp;wdist=[Distance]&amp;wstart=[Start Date]</code><br>Tap each blue word to pick it from <i>Repeat Item</i>. Set Duration to <i>minutes</i>, Distance to <i>miles</i>, and Start Date’s format to <i>ISO 8601</i>.</li>
         <li>After <b>End Repeat</b>, add <b>Combine Text</b> (separator: Custom, leave it empty) on <i>Repeat Results</i>.</li>
-        <li>In your first Text action, add the <i>Combined Text</i> variable to the end.</li>
+        <li>In the <code>#health…</code> Text action, add the <i>Combined Text</i> variable to the very end.</li>
       </ol>
       <p class="muted small">Each sync then adds any Watch workouts from the last two weeks on the right day. Ones you already have are skipped, and if you typed a run in by hand that matches, the Watch version replaces it.</p>
       <p class="muted small"><b>Activity rings:</b> add more <b>Find Health Samples</b> for today, each followed by <b>Calculate Statistics → Sum</b>: <i>Exercise Minutes</i>, <i>Apple Stand Hours</i> and <i>Resting Energy</i> (unit kcal). Append <code>&amp;min=[exercise]&amp;stand=[stand]&amp;rest=[rest]</code> to the Text. The Cardio tab then draws your Move, Exercise and Stand rings and the total including resting calories.</p>
