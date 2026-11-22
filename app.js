@@ -346,7 +346,8 @@
         <div><b>${wk}</b><small>workouts this week</small></div>
         <div><b>${last ? (days === 0 ? 'Today' : days === 1 ? 'Yesterday' : days + 'd ago') : '—'}</b><small>${last ? esc(titleOf(last.muscles, last.regions)) : 'no workouts yet'}</small></div>
       </div>
-      ${btn}</section>`;
+      ${btn}
+      <button class="link" data-act="log-open">＋ Log a run or workout I didn’t track here</button></section>`;
   }
   function viewRoutines() {
     const rs = state.routines;

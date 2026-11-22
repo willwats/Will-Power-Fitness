@@ -111,22 +111,23 @@ const WPC = (ctx) => {
       </div>
       <div class="grid2">
         <div class="field"><label for="clKcal">Calories burned</label><input id="clKcal" type="number" inputmode="numeric" min="0" value="${d.kcal || ''}"></div>
-        ${d.live ? '' : `<div class="field"><label for="clDate">Day</label><input id="clDate" type="date" value="${today}" max="${today}"></div>`}
+        ${d.live ? '' : `<div class="field"><label for="clDate">Day</label><input id="clDate" type="date" value="${d.day || today}" max="${today}"></div>`}
       </div>
       <p class="muted small">Calories are estimated from activity, pace and your weight (${w} ${U()}). Type your own number if your watch or machine shows one.</p>
       <div class="row gap wrap">
         <button class="pill on" data-act="cd-save">Save</button>
+        ${d.live ? '' : '<button class="pill" data-act="cd-save-more">Save &amp; add another</button>'}
         <button class="pill" data-act="close-sheet">${d.live ? 'Keep going' : 'Cancel'}</button>
         ${d.live ? '<button class="pill ghost danger" data-act="cd-discard">Discard</button>' : ''}
       </div>`);
   }
-  function saveLog() {
+  function saveLog(more) {
     const d = ui.cdraft; if (!d) return;
     const min = num(document.getElementById('clMin').value), sec = d.live ? Math.max(Math.round(min * 60), 60) : Math.round(min * 60);
     if (sec < 60) { toast('Enter how many minutes'); return; }
-    let date = d.date;
+    let date = d.date, day = '';
     if (!d.live) {
-      const day = document.getElementById('clDate').value, now = Date.now();
+      day = document.getElementById('clDate').value; const now = Date.now();
       const sod = new Date(); sod.setHours(0, 0, 0, 0);
       date = !day || day === CARDIO.dayKey(now) ? Math.max(now - sec * 1000, sod.getTime()) : new Date(day + 'T12:00:00').getTime();
     }
@@ -136,7 +137,13 @@ const WPC = (ctx) => {
     st.cardio.unshift(rec); st.cardio.sort((a, b) => b.date - a.date);
     if (d.live) st.cardioLive = null;
     ui.cdraft = null;
-    ctx.save(); closeSheet(); ctx.render(); toast(`Saved · ${rec.kcal} kcal`);
+    ctx.save(); ctx.render();
+    const name = (CARDIO.TYPES.find((t) => t.id === rec.type) || { name: 'Session' }).name;
+    if (more && !d.live) {
+      ui.cdraft = { type: rec.type, min: d.min, dist: 0, kcal: 0, kedit: false, live: false };
+      ui.cdraft.kcal = estimate(ui.cdraft);
+      sheetLog(); toast(`${name} saved — add the next one`);
+    } else { closeSheet(); toast(`${name} saved · ${rec.kcal} kcal`); }
   }
 
   /* ───────── native HealthKit (only inside the iPhone app) ───────── */
@@ -324,7 +331,7 @@ const WPC = (ctx) => {
       <h2>Start a session</h2>
       <div class="pills">${CARDIO.TYPES.map((x) => `<button class="pill ${x.id === ui.ctype ? 'on' : ''}" data-act="cd-type" data-v="${x.id}">${x.name}</button>`).join('')}</div>
       ${t.gps ? `<label class="toggle"><input type="checkbox" id="gpsToggle" ${ui.cgps ? 'checked' : ''}> <span>Track distance with GPS (keep the screen on)</span></label>` : ''}
-      <div class="row gap wrap"><button class="pill on big" data-act="cd-start">Start ${t.name.toLowerCase()}</button><button class="pill" data-act="cd-manual">Log one manually</button></div>
+      <div class="row gap wrap"><button class="pill on big" data-act="cd-start">Start ${t.name.toLowerCase()}</button><button class="pill" data-act="cd-manual">＋ Log a past session</button></div>
     </section>`;
   }
 
@@ -406,6 +413,7 @@ const WPC = (ctx) => {
         return true;
       case 'cd-manual': ui.cdraft = { type: ui.ctype, min: 30, dist: 0, kcal: 0, kedit: false, live: false }; ui.cdraft.kcal = estimate(ui.cdraft); sheetLog(); return true;
       case 'cd-save': saveLog(); return true;
+      case 'cd-save-more': saveLog(true); return true;
       case 'ring-goals': {
         const g = Object.assign({ move: 500, ex: 30, stand: 12 }, S().settings.ringGoals || {});
         const v = prompt('Ring goals: Move kcal, Exercise min, Stand hours', `${g.move}, ${g.ex}, ${g.stand}`);
