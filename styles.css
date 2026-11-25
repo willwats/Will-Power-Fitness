@@ -206,9 +206,9 @@ legend { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; co
 .wpa .gnd { stroke: var(--line); stroke-width: 1.5; }
 .wpa .p { stroke: var(--muted); fill: var(--muted); opacity: .75; }
 .wpa .shadow { fill: #000; opacity: .16; }
-.wpa .skin { fill: #e2ad86; }
-.wpa .skin.far { fill: #bd8a66; }
-.wpa .shirt { fill: #3f4a63; }
+.wpa .skin { fill: #e2ad86; fill: url(#wpaSkin); }
+.wpa .skin.far { fill: #bd8a66; fill: url(#wpaSkinFar); }
+.wpa .shirt { fill: #3f4a63; fill: url(#wpaShirt); }
 .wpa .short { fill: #1f2430; }
 .wpa .short.far { fill: #151a23; }
 .wpa .shoe { fill: #f4f4f6; stroke: #8d93a3; stroke-width: .6; }
@@ -220,6 +220,8 @@ legend { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; co
 .wpa .wi { fill: var(--card2); }
 .wpa .w2 { fill: none; stroke: var(--accent); stroke-width: 2.5; }
 .wpa .wh { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.wpa .tower { opacity: .45; }
+.wpa .pulley { fill: var(--card2); stroke: var(--muted); stroke-width: 1.2; }
 .wpa .rope { stroke: var(--accent2); stroke-width: 1.2; stroke-dasharray: 2 1.5; }
 
 .ex header { display: flex; gap: 12px; align-items: flex-start; }

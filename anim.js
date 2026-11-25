@@ -147,7 +147,7 @@ const WPA = (() => {
       <line class="gnd" x1="-60" y1="${GY}" x2="220" y2="${GY}"/>
       <ellipse class="shadow" cx="80" cy="${GY + 0.5}" rx="22" ry="1.6"/>
       ${tpl.static || ''}
-      ${anchor && (held === 'rope' || tpl.rope) ? `<circle class="p" cx="${anchor[0]}" cy="${anchor[1]}" r="2.2"/><line class="rope" x1="0" y1="0" x2="${anchor[0]}" y2="${anchor[1]}"/>` : ''}
+      ${anchor && (held === 'rope' || tpl.rope) ? `<line class="p tower" x1="${anchor[0]}" y1="-40" x2="${anchor[0]}" y2="${GY}" stroke-width="3.4"/><rect class="p" x="${anchor[0] - 5}" y="${GY - 16}" width="10" height="16" rx="1"/><circle class="pulley" cx="${anchor[0]}" cy="${anchor[1]}" r="2.6"/><line class="rope" x1="0" y1="0" x2="${anchor[0]}" y2="${anchor[1]}"/>` : ''}
       ${opts.ghosts ? ghost(0) + ghost(1) : ''}
       ${BODY_EL(e)}
       ${hl ? Array.from({ length: hl.n }, (_, i) => e('ellipse', 'hl', 'hl' + i)).join('') : ''}

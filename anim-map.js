@@ -1,6 +1,27 @@
 /* Maps every exercise to a movement template + the kind of weight it holds. */
 (() => {
   // First matching rule wins, so specific names come before general ones.
+  // Checked against the exercise's own name first, even when it borrows another exercise's animation.
+  const FIRST = [
+    [/^TRX (Row|Single-Arm Row)/, 'trx_row'],
+    [/^TRX Biceps Curl/, 'trx_curl'],
+    [/^TRX (Chest Press|Chest Fly)/, 'trx_press'],
+    [/^TRX Triceps/, 'trx_tri'],
+    [/^Parallette L-Sit/, 'lsit'],
+    [/^Parallette Tuck/, 'tuck_hold'],
+    [/^Box Jump/, 'box_jump'],
+    [/^Seated Leg Curl/, 'leg_curl_seated'],
+    [/^Sit-Up$/, 'situp'],
+    [/Preacher/, 'preacher'],
+    [/^(Standing Cable Row|Single-Arm Cable Row)/, 'row_stand'],
+    [/^Dumbbell Rear Delt Row/, 'row_bent'],
+    [/^Cable Rear Delt Row/, 'face_pull'],
+    [/^Side Lunge|^Lateral Lunge/, 'side_lunge_f'],
+    [/External Shoulder Rotation|Internal Shoulder Rotation/, 'ext_rotation_f'],
+    [/^Cable Hip Adduction/, 'adduct_f'],
+    [/^Cable Hip Abduction/, 'abduct_f'],
+    [/^(Seated Cable Chest Fly|High-to-Low Cable Fly|Single-Arm Cable Fly)/, 'fly_stand'],
+  ];
   const RULES = [
     [/^Hamstring Walkout|^Stability Ball Leg Curl|^TRX Hamstring Curl/, 'bridge_curl'],
     [/^Lying Leg Curl/, 'leg_curl'],
@@ -120,6 +141,7 @@
   }
 
   WPA.templateFor = (ex) => {
+    for (const [re, t] of FIRST) if (re.test(ex.name)) return t;
     if (ex.animLike) ex = Object.assign({}, ex, { name: ex.animLike });   // custom exercises borrow a built-in animation
     for (const [re, t] of RULES) if (re.test(ex.name)) return typeof t === 'function' ? t(ex) : t;
     return null;
