@@ -38,6 +38,7 @@
     ['home', 'Home: DB + bench + bands', () => ['dumbbell', 'bench', 'bands']],
     ['db', 'Dumbbells only', () => ['dumbbell']],
     ['tag', 'TAG Functional Trainer', () => ['functional_trainer']],
+    ['lfcorner', 'Life Fitness pulley corner', () => ['dual_pulley', 'suspension', 'bands', 'stability_ball', 'parallettes']],
     ['bw', 'Bodyweight only', () => []],
   ];
 

@@ -10,7 +10,7 @@ No account, no backend, no build step — it's a static web app that runs entire
 - **Focus areas** — after picking a body part, narrow it: Abs → upper / middle / lower / obliques / deep core, Chest → upper / mid / lower, Shoulders → front / side / rear, Back → lats / upper back / lower back. The workout then uses exercises for that region.
 - **Start button** — hit ▶ Start workout when you begin; the clock runs from then (logging a set also starts it).
 - **Equipment profiles** — create as many as you want (e.g. *Gym*, *Home – Upstairs*). Each profile is a checklist of gear; workouts only ever use exercises you can do with the active profile.
-- **318 exercises** with form cues, from bodyweight to full gym, tagged by muscle, equipment, difficulty and compound/isolation.
+- **348 exercises** with form cues, from bodyweight to full gym, tagged by muscle, equipment, difficulty and compound/isolation.
 - **Workout generator** — splits the exercise budget across your target muscles, leads with compound lifts, finishes with isolation/core, and avoids repeating what you did in your last few workouts. Choose goal (Strength / Muscle / Endurance), experience level and number of exercises.
 - **Animated demos** — every exercise has a looping animation of an athlete (shorts, shoes, the weight or cable it uses) showing the movement, with the muscle you're training glowing. On workout cards and in the library.
 - **Form guide** — tap any exercise animation for a large view with slow motion, pause, numbered start/finish ghost poses, plain-language steps and form tips. Animations zoom in on the movement.
@@ -117,6 +117,9 @@ Library → **Create your own exercise** (or "Can't find it?" in the Add-exercis
 
 ## TAG Functional Trainer and animation fixes
 Pick **TAG Functional Trainer (dual cable + pull-up bar)** under Machines & cables (or the "TAG Functional Trainer" preset when editing a profile). It counts as a cable machine plus a pull-up bar, and unlocks 40 extra cable and pull-up-bar moves (single-arm presses and rows, half-kneeling chops and presses, ankle-strap hip work, Pallof variations, pull-up grips). Moves like side lunge, hip abduction/adduction and shoulder rotation also have a **Front view** toggle in the form guide (the engine now supports bending legs and sideways body shift in front view). New hand-drawn animations replace borrowed ones for side planks, kneeling push-ups, side and curtsy lunges, clamshells, shoulder rotations and standing hip flexion/abduction.
+
+## Life Fitness pulley corner
+Gear item **Life Fitness Dual Adjustable Pulley** (counts as cables + multi-grip pull-up bar), new **Push-up handles / parallettes**, and the profile preset **Life Fitness pulley corner** (pulley, suspension straps, bands, stability ball, push-up handles: 184 exercises). Adds 33 moves for that setup: TRX chest press/fly/push-up/Y-raise/reverse fly/face pull/single-arm row/squat/single-leg squat/suspended lunge/hip press/knee tuck/pike/mountain climber/plank, stability-ball plank, stir the pot, pike, knee tuck, dead bug, pass, back extension, glute bridge, wall squat, push-ups, parallette push-up/pike push-up/L-sit/tuck hold, cable pull-through, kneeling cable crunch and angled-grip pull-up.
 
 ## Apple Watch workouts
 The Will Power Sync Shortcut can also send Watch/Fitness workouts from the last 14 days (`wtype`, `wmin`, `wkcal`, `wdist`, `wstart` per workout; steps in Cardio → Setup guide). Each lands on its own day; repeats are skipped, and a hand-typed session of the same type on the same day with a similar length is replaced by the Watch version. The iPhone app (`native/`) reads the same 14 days automatically.

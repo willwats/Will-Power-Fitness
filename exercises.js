@@ -37,6 +37,7 @@ const EQUIPMENT_GROUPS = [
   ]},
   { name: 'Machines & cables', items: [
     { id: 'functional_trainer', name: 'TAG Functional Trainer (dual cable + pull-up bar)' },
+    { id: 'dual_pulley', name: 'Life Fitness Dual Adjustable Pulley (cables + multi-grip pull-up bar)' },
     { id: 'cable', name: 'Cable machine' },
     { id: 'lat_pulldown', name: 'Lat pulldown' },
     { id: 'seated_row', name: 'Seated row machine' },
@@ -54,6 +55,7 @@ const EQUIPMENT_GROUPS = [
     { id: 'stability_ball', name: 'Stability ball' },
     { id: 'med_ball', name: 'Medicine ball' },
     { id: 'ab_wheel', name: 'Ab wheel' },
+    { id: 'parallettes', name: 'Push-up handles / parallettes' },
   ]},
 ];
 
@@ -62,7 +64,7 @@ const TIMED_NAMES = ['Plank', 'Side Plank', 'Wall Sit', 'Dead Hang', 'Hollow Bod
   "Farmer's Carry", 'Suitcase Carry'];
 
 // Gear that only supports bodyweight movements (nothing to load with plates/dumbbells)
-const BODYWEIGHT_GEAR = ['bench', 'box', 'pullup_bar', 'dip_bars', 'suspension', 'squat_rack', 'stability_ball', 'ab_wheel'];
+const BODYWEIGHT_GEAR = ['bench', 'box', 'pullup_bar', 'dip_bars', 'suspension', 'squat_rack', 'stability_ball', 'ab_wheel', 'parallettes'];
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -318,7 +320,7 @@ const EQUIP_NAME = {};
 EQUIPMENT_GROUPS.forEach((g) => g.items.forEach((i) => { EQUIP_NAME[i.id] = i.name; }));
 const ALL_EQUIPMENT = Object.keys(EQUIP_NAME);
 
-const IMPLIES = { functional_trainer: ['cable', 'pullup_bar'] };   // owning the trainer covers its cables and bar
+const IMPLIES = { functional_trainer: ['cable', 'pullup_bar'], dual_pulley: ['cable', 'pullup_bar'] };   // owning the trainer covers its cables and bar
 function isAvailable(ex, owned) {
   owned = owned.reduce((a, id) => a.concat(id, IMPLIES[id] || []), []);
   return ex.equip.every((req) => req.split('|').some((r) => owned.includes(r)));
