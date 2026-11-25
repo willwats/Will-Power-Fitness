@@ -12,6 +12,9 @@ const CARDIO = (() => {
     { id: 'hiit', name: 'HIIT' },
     { id: 'jumprope', name: 'Jump rope' },
     { id: 'strength', name: 'Strength' },
+    { id: 'golf', name: 'Golf', gps: true },
+    { id: 'sports', name: 'Sports' },
+    { id: 'yoga', name: 'Yoga' },
     { id: 'other', name: 'Other' },
   ];
   const TYPE_NAME = Object.fromEntries(TYPES.map((t) => [t.id, t.name]));
@@ -22,7 +25,7 @@ const CARDIO = (() => {
     run: [[4, 6.0], [5, 8.3], [6, 9.8], [7, 11.0], [8, 11.8], [9, 12.8], [10, 14.5]],
     cycle: [[10, 6.0], [12, 8.0], [14, 10.0], [16, 12.0], [20, 15.8]],
   };
-  const FIXED_MET = { walk: 3.5, run: 9.8, cycle: 8.0, hike: 6.0, elliptical: 5.0, rower: 7.0, stairs: 8.8, swim: 6.0, hiit: 8.0, jumprope: 11.8, strength: 5.0, other: 5.0 };
+  const FIXED_MET = { walk: 3.5, run: 9.8, cycle: 8.0, hike: 6.0, elliptical: 5.0, rower: 7.0, stairs: 8.8, swim: 6.0, hiit: 8.0, jumprope: 11.8, strength: 5.0, golf: 4.8, sports: 7.0, yoga: 2.5, other: 5.0 };
 
   const MI = 1609.344;
   const lerp = (a, b, k) => a + (b - a) * k;
@@ -98,7 +101,8 @@ const CARDIO = (() => {
   /* ───────── Apple Health bridge ───────── */
   const HEALTH_TYPES = [
     [/walk/i, 'walk'], [/run/i, 'run'], [/hik/i, 'hike'], [/cycl|bik/i, 'cycle'], [/ellip/i, 'elliptical'], [/row/i, 'rower'],
-    [/stair/i, 'stairs'], [/swim/i, 'swim'], [/high intensity|hiit|interval/i, 'hiit'], [/jump rope/i, 'jumprope'], [/strength|weight/i, 'strength'],
+    [/stair/i, 'stairs'], [/swim/i, 'swim'], [/high intensity|hiit|interval/i, 'hiit'], [/jump rope/i, 'jumprope'], [/strength|weight/i, 'strength'], [/golf/i, 'golf'], [/yoga|pilates|flexibility|mind/i, 'yoga'],
+    [/tennis|basketball|soccer|football|baseball|volleyball|hockey|pickleball|racquet|squash|badminton|boxing|kickboxing|martial/i, 'sports'],
   ];
   const healthType = (s) => { for (const [re, id] of HEALTH_TYPES) if (re.test(s || '')) return id; return 'other'; };
   const numOf = (v) => { if (v == null) return 0; const n = parseFloat(String(v).replace(/,/g, '').trim()); return Number.isFinite(n) ? n : 0; };
@@ -155,6 +159,10 @@ const CARDIO = (() => {
         Object.assign(twin, { date: w.start, dur: w.dur, kcal: w.kcal || twin.kcal, label: w.label, source: 'health',
           dist: w.miles ? Math.round(metersToUnit(w.miles * MI, units) * 100) / 100 : twin.dist });
         added++; continue;
+      }
+      if (!w.kcal && w.dur) {                              // no calories sent (e.g. a walk) → estimate from pace and body weight
+        const mph = w.miles ? w.miles / (w.dur / 3600) : 0, s = state.settings || {};
+        w.kcal = kcalFor(metFor(w.type, mph), toKg(s.weight || (units === 'kg' ? 75 : 165), units), w.dur);
       }
       state.cardio.unshift({
         id: Math.random().toString(36).slice(2, 10), type: w.type, label: w.label, date: w.start, dur: w.dur,

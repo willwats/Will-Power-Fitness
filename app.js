@@ -313,9 +313,9 @@
         reps: en.target.reps, rest: en.target.rest, ...(en.ss ? { ss: en.ss, ssPos: en.ssPos } : {}) })) };
   }
   /* ───────────── recovery map ───────────── */
-  const recStatus = () => RECOVERY.status(state.history, EX_BY_ID);
+  const recStatus = () => RECOVERY.status(state.history, EX_BY_ID, Date.now(), state.cardio || []);
   function recoveryCard() {
-    if (!state.history.length) return '';
+    if (!state.history.length && !(state.cardio || []).length) return '';
     const st = recStatus();
     const order = MUSCLES.map((m) => m.id).sort((x, y) => st[x].pct - st[y].pct);
     const pick = ui.recM && st[ui.recM] ? ui.recM : order[0];
@@ -330,10 +330,10 @@
       <svg class="recmap" viewBox="${ANATOMY.VIEWBOX}" role="group" aria-label="Recovery map">${fig('front', 0)}${fig('back', 110)}</svg>
       <div class="legend"><span><i style="background:${RECOVERY.color(15)}"></i>Recovering</span><span><i style="background:${RECOVERY.color(70)}"></i>Almost</span><span><i style="background:${RECOVERY.color(100)}"></i>Fresh</span></div>
       <div class="recinfo">
-        <div><b>${MUSCLE_NAME[pick]} · ${r.pct}%</b><small>${agoTxt}${r.sets ? ` · ${r.sets} sets` : ''} · ${ready}</small></div>
+        <div><b>${MUSCLE_NAME[pick]} · ${r.pct}%</b><small>${agoTxt}${r.via ? ` · ${esc(r.via.length > 3 ? r.via : (CARDIO.TYPE_NAME[r.via] || r.via))}` : r.sets ? ` · ${r.sets} sets` : ''} · ${ready}</small></div>
         <button class="pill ${sel ? 'on' : ''}" data-act="toggle-muscle" data-m="${pick}">${sel ? '✓ In workout' : '＋ Train it'}</button>
       </div>
-      <p class="muted small">An estimate from your logged sets: bigger muscles and more sets take longer. Tap a muscle for details.</p>
+      <p class="muted small">An estimate from your logged sets and cardio (runs, elliptical, golf and other activities count too): bigger muscles and harder sessions take longer. Tap a muscle for details.</p>
     </details>`;
   }
 
@@ -780,7 +780,7 @@
       </details>`; } }))
       .concat(cardio.map((c) => ({ t: c.date, html: () => `
       <div class="hist cardio-row">
-        <span><b>${esc(CARDIO.TYPE_NAME[c.type] || 'Cardio')}</b>${c.source === 'health' ? ' <span class="badge">Apple Health</span>' : ''}
+        <span><b>${esc(c.label || CARDIO.TYPE_NAME[c.type] || 'Cardio')}</b>${c.source === 'health' ? ' <span class="badge">Apple Health</span>' : ''}
           <small>${fmtDate(c.date)} · ${fmtClock(c.dur)}${c.dist ? ` · ${c.dist} ${CARDIO.distUnit(state.settings.units)}` : ''}</small></span>
         <span class="vol">${fmtNum(c.kcal || 0)}<small>kcal</small></span>
         <button class="link danger" data-act="cd-del" data-id="${c.id}">Delete</button>
