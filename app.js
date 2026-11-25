@@ -164,6 +164,14 @@
     const sg = PROG.suggest(ex, target, state.history, state.settings.units, EX_BY_ID);
     const sets = sg.sets.map((s) => ({ w: ex.timed ? '' : s.w, r: s.r, done: false }));
     const entry = { exId: ex.id, target, sets, note: sg.note, nkind: sg.kind };
+    const dl = MOTIVE.deloadCheck(state);
+    if (dl && dl.active && !ex.timed) {                      // deload week: fewer sets, about 15% lighter
+      const k = Math.max(2, Math.round(entry.sets.length * 0.67));
+      entry.sets = entry.sets.slice(0, k); entry.target = { ...entry.target, sets: k };
+      const st = state.settings.units === 'kg' ? 1 : 2.5;
+      entry.sets.forEach((s) => { if (num(s.w) > 0) s.w = String(Math.max(st, Math.round((num(s.w) * 0.85) / st) * st)); });
+      entry.note = 'Deload week: fewer sets and about 15% lighter so you recover and come back stronger.'; entry.nkind = 'repeat';
+    }
     snapEntry(entry);
     return entry;
   }
@@ -329,6 +337,13 @@
     </details>`;
   }
 
+  function deloadHtml() {
+    const dl = MOTIVE.deloadCheck(state);
+    if (!dl) return '';
+    if (dl.active) return `<div class="deload on"><b>🌿 Deload week</b><small>Fewer sets, ~15% lighter until ${new Date(dl.until).toLocaleDateString(undefined, { weekday: 'short' })}.</small><button class="link" data-act="dl-end">End early</button></div>`;
+    return `<div class="deload"><b>Time for a lighter week?</b><small>${esc(dl.reason)}. A deload week (fewer sets, ~15% lighter) helps you recover and keep progressing.</small>
+      <div class="row gap"><button class="pill on" data-act="dl-start">Start deload week</button><button class="pill" data-act="dl-snooze">Not now</button></div></div>`;
+  }
   function todayCard() {
     const now = Date.now(), sug = P.isSet() ? PLAN.suggestToday(state, now) : null;
     const last = state.history[0];
@@ -337,12 +352,14 @@
     const r = state.routines.slice().sort((x, y) => (y.lastUsed || y.created) - (x.lastUsed || x.created))[0];
     let btn;
     if (sug && sug.doneToday) btn = '<p class="tc-done">✓ Done for today — nice work.</p>';
+    else if (sug && sug.planned && sug.routineId) btn = `<button class="primary big" data-act="rt-start" data-id="${sug.routineId}">▶ Today: ${esc(sug.label)}</button>`;
     else if (sug && sug.planned) btn = `<button class="primary big" data-act="pl-build">▶ Today: ${esc(sug.label)}</button>`;
     else if (r) btn = `<button class="primary big" data-act="rt-start" data-id="${r.id}">▶ Start ${esc(r.name)}</button>`;
     else btn = '<button class="primary big" data-act="go-build">Build today’s workout ↓</button>';
     const d = new Date();
     return `<section class="card todaycard">
-      <p class="tc-date">${d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+      <div class="row between"><p class="tc-date">${d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>${(() => { const s = MOTIVE.streak(state); return s.weeks ? `<span class="streak" title="Weeks in a row with a workout">🔥 ${s.weeks}-week streak</span>` : ''; })()}</div>
+      ${deloadHtml()}
       <div class="tc-stats">
         <div><b>${wk}</b><small>workouts this week</small></div>
         <div><b>${last ? (days === 0 ? 'Today' : days === 1 ? 'Yesterday' : days + 'd ago') : '—'}</b><small>${last ? esc(titleOf(last.muscles, last.regions)) : 'no workouts yet'}</small></div>
@@ -352,8 +369,8 @@
   }
   function viewRoutines() {
     const rs = state.routines;
-    if (!rs.length) return '';
-    return `<section class="card routines"><h2>Your routines</h2>
+    if (!rs.length) return `<section class="card routines"><div class="row between"><h2>Routines</h2><button class="link" data-act="rt-paste">＋ Paste a routine</button></div><p class="muted small">Save a workout you like with ☆ Save as routine, or paste one from a website or notes.</p></section>`;
+    return `<section class="card routines"><div class="row between"><h2>Your routines</h2><button class="link" data-act="rt-paste">＋ Paste</button></div>
       ${rs.map((r) => `<div class="rt">
         <div><b>${esc(r.name)}</b><small>${r.exercises.length} exercises · ${esc(r.exercises.slice(0, 3).map((x) => (EX_BY_ID[x.exId] || {}).name).filter(Boolean).join(', '))}${r.exercises.length > 3 ? '…' : ''}${r.lastUsed ? ' · last ' + fmtDate(r.lastUsed) : ''}</small></div>
         <button class="pill on" data-act="rt-start" data-id="${r.id}">▶ Start</button>
@@ -383,6 +400,22 @@
     const name = (prompt('Name this routine', w.routineName || titleOf(w.muscles, w.regions)) || '').trim();
     if (!name) return;
     state.routines.unshift(routineFrom(w, name)); save(); toast(`Saved “${name}” — find it on the Train tab`);
+  }
+  /* paste a routine from text */
+  function sheetPaste() {
+    const d = ui.paste || (ui.paste = { text: '', name: '', items: null, skipped: [] });
+    if (!d.items) {
+      openSheet('Paste a routine', `
+        <p class="muted">Paste a workout from a website, a note or a message. One exercise per line, like <i>Bench Press 4x8</i> or <i>Lat pulldown – 3 sets of 10-12</i>.</p>
+        <textarea id="pasteText" rows="9" placeholder="Push Day&#10;Bench Press 4x6-8&#10;Incline DB Press 3x10&#10;Cable flyes 3 x 12-15&#10;Tricep pushdowns 3x12">${esc(d.text)}</textarea>
+        <div class="row gap wrap"><button class="pill on" data-act="rt-parse">Read it</button><button class="pill" data-act="close-sheet">Cancel</button></div>`);
+      return;
+    }
+    openSheet('Check your routine', `
+      <div class="field"><label for="pasteName">Routine name</label><input id="pasteName" value="${esc(d.name)}" maxlength="40"></div>
+      ${d.items.length ? `<div class="rt-list">${d.items.map((x, k) => `<div class="pr"><div><b>${esc(x.name)}</b><small>${x.sets} × ${esc(x.reps)}${x.max ? ' · last set max' : ''} · from “${esc(x.src)}”</small></div><button class="link danger" data-act="rt-pdel" data-k="${k}" aria-label="Remove ${esc(x.name)}">✕</button></div>`).join('')}</div>` : '<p class="empty">No exercises recognised.</p>'}
+      ${d.skipped.length ? `<p class="muted small">Couldn’t match: ${d.skipped.map(esc).join(' · ')}. Add those with ＋ Add exercise after you start, or create them as custom exercises.</p>` : ''}
+      <div class="row gap wrap">${d.items.length ? '<button class="pill on" data-act="rt-psave">Save routine</button>' : ''}<button class="pill" data-act="rt-pback">Edit text</button></div>`);
   }
   function sheetRoutineMenu(r) {
     openSheet(r.name, `
@@ -661,6 +694,58 @@
     return T.histSwitch() + '<button class="pill wide" data-act="log-open">＋ Log a workout I did (earlier or not in the app)</button>' + viewWorkoutHistory();
   }
 
+  function calendarCard() {
+    const now = new Date(), off = ui.calOff || 0;
+    const first = new Date(now.getFullYear(), now.getMonth() + off, 1);
+    const days = MOTIVE.activeDays(state), st = MOTIVE.streak(state);
+    const nDays = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    const todayK = MOTIVE.dayKey(Date.now());
+    let cells = '';
+    for (let i = 0; i < first.getDay(); i++) cells += '<span></span>';
+    let monthCount = 0;
+    for (let dd = 1; dd <= nDays; dd++) {
+      const k = MOTIVE.dayKey(new Date(first.getFullYear(), first.getMonth(), dd, 12).getTime()), a = days[k];
+      if (a) monthCount++;
+      cells += `<button class="cd ${a && a.lift ? 'lift' : ''} ${a && a.cardio ? 'cardio' : ''} ${k === todayK ? 'today' : ''} ${ui.histDay === k ? 'sel' : ''}" data-act="cal-day" data-k="${k}" ${a ? '' : 'tabindex="-1"'} aria-label="${k}${a ? ' — trained' : ''}">${dd}</button>`;
+    }
+    return `<section class="card cal">
+      <div class="row between"><button class="link" data-act="cal-nav" data-v="-1" aria-label="Previous month">‹</button>
+        <b>${first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b>
+        <button class="link" data-act="cal-nav" data-v="1" ${off >= 0 ? 'disabled' : ''} aria-label="Next month">›</button></div>
+      <div class="calgrid">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((x) => `<small>${x}</small>`).join('')}${cells}</div>
+      <div class="calfoot"><span><i class="lg lift"></i>Strength</span><span><i class="lg cardio"></i>Cardio</span><span>${monthCount} active day${monthCount === 1 ? '' : 's'}</span></div>
+      <p class="streakline">🔥 <b>${st.weeks}-week streak</b>${st.thisWeek || !st.weeks ? '' : ' — train this week to keep it'}${st.best > st.weeks ? ` · best ${st.best}` : ''}</p>
+    </section>`;
+  }
+  function badgeStrip() {
+    const bs = MOTIVE.badges(state), got = bs.filter((b) => b.earned);
+    return `<button class="card badgestrip" data-act="badges-open"><span>${got.slice(-6).map((b) => b.icon).join(' ') || '🏅'}</span><b>${got.length} of ${bs.length} badges</b><small>See all ›</small></button>`;
+  }
+  function sheetBadges() {
+    MOTIVE.newBadges(state); save();
+    openSheet('Badges', `<div class="badges">${MOTIVE.badges(state).map((b) => `<div class="bdg ${b.earned ? 'got' : ''}"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><small>${esc(b.desc)}</small>${b.earned ? (state.badges && state.badges[b.id] ? `<small class="when">${fmtDate(state.badges[b.id])}</small>` : '') : `<div class="bar"><i style="width:${b.pct}%"></i></div>`}</div>`).join('')}</div>`);
+  }
+  /* shareable image of a finished workout */
+  async function shareWorkout(rec) {
+    const u = state.settings.units, st = MOTIVE.streak(state);
+    const lines = rec.exercises.map((e) => {
+      const ws = e.sets.filter((s) => !s.warm); if (!ws.length) return null;
+      const top = ws.reduce((b, s) => (num(s.w) * (1 + num(s.r) / 30) > num(b.w) * (1 + num(b.r) / 30) ? s : b), ws[0]);
+      return [e.name, e.timed ? `${ws.length} × ${top.r}s` : num(top.w) ? `${ws.length} × ${top.r} @ ${top.w} ${u}` : `${ws.length} × ${top.r}`];
+    }).filter(Boolean);
+    const cv = MOTIVE.drawShare(rec, {
+      title: rec.routineName || titleOf(rec.muscles, rec.regions), date: new Date(rec.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }),
+      tiles: [[fmtClock(((rec.endedAt || rec.date) - rec.date) / 1000), 'time'], [String(setsOf(rec)), 'sets'], [fmtNum(volumeOf(rec)), `${u} lifted`]],
+      lines, prs: rec.prs && rec.prs.length ? `${rec.prs.length} new personal record${rec.prs.length > 1 ? 's' : ''}` : '', streak: st.weeks ? `🔥 ${st.weeks}-week streak` : '',
+    });
+    const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
+    const file = new File([blob], 'will-power-workout.png', { type: 'image/png' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'My workout' }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    const url = URL.createObjectURL(blob), aEl = document.createElement('a'); aEl.href = url; aEl.download = 'will-power-workout.png'; document.body.appendChild(aEl); aEl.click(); aEl.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000); toast('Image saved');
+  }
   function viewWorkoutHistory() {
     const h = state.history;
     const weekAgo = Date.now() - 7 * 86400000;
@@ -684,11 +769,12 @@
       const dur = w.endedAt && w.date ? fmtClock((w.endedAt - w.date) / 1000) : '';
       return `
       <details class="hist">
-        <summary><span><b>${esc(titleOf(w.muscles, w.regions))}</b>
+        <summary><span><b>${esc(w.routineName || titleOf(w.muscles, w.regions))}</b>
           <small>${fmtDate(w.date)} · ${esc(w.profileName || '')}${dur ? ' · ' + dur : ''}${w.kcal ? ' · ~' + fmtNum(w.kcal) + ' kcal' : ''}</small></span>
           <span class="vol">${setsOf(w)} sets<small>${fmtNum(volumeOf(w))} ${state.settings.units}</small></span></summary>
         ${w.exercises.map((e) => { const ws = e.sets.filter((s) => !s.warm), fx = (ws.find((s) => s.fx) || {}).fx;
           return `<div class="hx"><b>${esc(e.name)}${fx ? ` <span class="fxtag fx-${fx}">${FX[fx][0]}</span>` : ''}</b><span>${ws.map((s) => `${s.max ? '★' : ''}${e.timed ? `${s.r}s` : `${s.w ? s.w + '×' : ''}${s.r}`}`).join(' · ')}</span></div>`; }).join('')}
+        <button class="link" data-act="hist-share" data-id="${w.id}">Share</button>
         ${w.sent ? '<span class="badge">In Health</span>' : `<button class="link" data-act="hist-send" data-id="${w.id}">Send to Apple Health</button>`}
         <button class="link danger" data-act="hist-del" data-id="${w.id}">Delete workout</button>
       </details>`; } }))
@@ -700,7 +786,9 @@
         <button class="link danger" data-act="cd-del" data-id="${c.id}">Delete</button>
       </div>` })))
       .sort((a, b) => b.t - a.t);
-    return stats + progCard + items.map((x) => x.html()).join('');
+    const shown = ui.histDay ? items.filter((x) => MOTIVE.dayKey(x.t) === ui.histDay) : items;
+    const dayHead = ui.histDay ? `<div class="row between dayhead"><b>${new Date(ui.histDay + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</b><button class="link" data-act="cal-all">Show all</button></div>` : '';
+    return calendarCard() + badgeStrip() + stats + progCard + dayHead + (shown.length ? shown.map((x) => x.html()).join('') : '<p class="empty">Nothing logged that day.</p>');
   }
 
   function viewGear() {
@@ -992,6 +1080,7 @@
 
   function sheetSummary(rec) {
     const dur = fmtClock((rec.endedAt - rec.date) / 1000);
+    const fresh = MOTIVE.newBadges(state); if (fresh.length) save();
     openSheet('Workout complete 💪', `
       <div class="stats big">
         <div><b>${dur}</b><small>time</small></div>
@@ -999,6 +1088,8 @@
         <div><b>${fmtNum(volumeOf(rec))}</b><small>${state.settings.units} lifted</small></div>
       </div>
       ${rec.prs && rec.prs.length ? `<div class="card prs"><h3>🏆 New personal ${rec.prs.length > 1 ? 'records' : 'record'}</h3>${rec.prs.map((p) => `<p><b>${esc(p.name)}</b> — ${p.w} ${state.settings.units} × ${p.r}</p>`).join('')}</div>` : ''}
+      ${fresh.length ? `<div class="card newbadge">${fresh.map((b) => `<p><span class="bi">${b.icon}</span> <b>New badge: ${esc(b.name)}</b> <small>${esc(b.desc)}</small></p>`).join('')}</div>` : ''}
+      <button class="pill wide" data-act="hist-share" data-id="${rec.id}">📤 Share this workout</button>
       <p class="muted">Saved to your history. Next time, the app will suggest what to lift based on this.</p>
       ${ui.lastPlan && ui.lastPlan.routineId && state.routines.some((r) => r.id === ui.lastPlan.routineId)
         ? `<button class="pill wide" data-act="rt-update">Update “${esc(ui.lastPlan.routineName)}” with today’s exercises</button>`
@@ -1184,6 +1275,7 @@
     const kcal = CARDIO.kcalFor(CARDIO.metFor('strength'), CARDIO.toKg(state.settings.weight || (state.settings.units === 'kg' ? 75 : 165), state.settings.units), durSec);
     const rec = { id: w.id, date: startedAt, endedAt, kcal, profileId: w.profileId, profileName: w.profileName, muscles: w.muscles, regions: w.regions || {}, goal: w.goal, exercises };
     if (w.sport) rec.sport = w.sport;
+    if (w.routineName) rec.routineName = w.routineName;
     rec.prs = PROG.newPRs(state.history, rec, EX_BY_ID);
     state.history.unshift(rec);
     if (w.routineId) { const r = state.routines.find((x) => x.id === w.routineId); if (r) r.lastUsed = endedAt; }
@@ -1276,6 +1368,30 @@
       case 'rt-save-last': if (ui.lastPlan) { saveRoutinePrompt(ui.lastPlan); closeSheet(); render(); } break;
       case 'rt-update': { const p = ui.lastPlan, k = p && state.routines.findIndex((x) => x.id === p.routineId); if (k >= 0) { const old = state.routines[k], nr = routineFrom(p, old.name); nr.id = old.id; nr.created = old.created; nr.lastUsed = Date.now(); state.routines[k] = nr; save(); toast('Routine updated'); closeSheet(); render(); } break; }
       case 'rec-pick': { ui.recM = d.m; const c = $('#recCard'); if (c) c.outerHTML = recoveryCard(); break; }
+      case 'cal-nav': ui.calOff = Math.min(0, (ui.calOff || 0) + +d.v); render(); break;
+      case 'cal-day': ui.histDay = ui.histDay === d.k ? null : d.k; render(); break;
+      case 'cal-all': ui.histDay = null; render(); break;
+      case 'badges-open': sheetBadges(); break;
+      case 'hist-share': { const x = state.history.find((h) => h.id === d.id); if (x) shareWorkout(x); break; }
+      case 'dl-start': state.deload = { ...(state.deload || {}), until: Date.now() + 7 * 86400000, last: Date.now() }; save(); render(); toast('Deload week on — new workouts are lighter for 7 days'); break;
+      case 'dl-end': state.deload = { ...(state.deload || {}), until: 0, last: Date.now() }; save(); render(); toast('Deload ended'); break;
+      case 'dl-snooze': state.deload = { ...(state.deload || {}), snooze: Date.now() + 7 * 86400000 }; save(); render(); break;
+      case 'rt-paste': ui.paste = null; sheetPaste(); break;
+      case 'rt-parse': {
+        const txt = ($('#pasteText') || {}).value || ''; if (!txt.trim()) { toast('Paste a routine first'); break; }
+        const owned = profile().equipment, r = MOTIVE.parseRoutine(txt, EXERCISES, (e) => isAvailable(e, owned));
+        ui.paste = { text: txt, name: r.title || 'Pasted routine', items: r.items, skipped: r.skipped }; sheetPaste(); break;
+      }
+      case 'rt-pback': if (ui.paste) { ui.paste.items = null; sheetPaste(); } break;
+      case 'rt-pdel': if (ui.paste && ui.paste.items) { ui.paste.name = ($('#pasteName') || {}).value || ui.paste.name; ui.paste.items.splice(+d.k, 1); sheetPaste(); } break;
+      case 'rt-psave': {
+        const p = ui.paste; if (!p || !p.items || !p.items.length) break;
+        const name = (($('#pasteName') || {}).value || p.name).trim() || 'Pasted routine';
+        const muscles = [...new Set(p.items.map((x) => EX_BY_ID[x.exId].muscle))];
+        state.routines.unshift({ id: uid(), name, created: Date.now(), lastUsed: 0, goal: state.settings.goal, muscles, regions: {},
+          exercises: p.items.map((x) => ({ exId: x.exId, sets: x.sets, reps: x.reps, rest: prescription(EX_BY_ID[x.exId], state.settings.goal).rest })) });
+        ui.paste = null; save(); closeSheet(); render(); toast(`Saved “${name}” — tap ▶ Start to use it`); break;
+      }
       case 'go-build': { const b = $('.builder'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' }); break; }
       case 'set-theme': state.settings.theme = d.v; save(); applyTheme(); render(); break;
       case 'same-prev': {

@@ -118,6 +118,14 @@ Library → **Create your own exercise** (or "Can't find it?" in the Add-exercis
 ## TAG Functional Trainer and animation fixes
 Pick **TAG Functional Trainer (dual cable + pull-up bar)** under Machines & cables (or the "TAG Functional Trainer" preset when editing a profile). It counts as a cable machine plus a pull-up bar, and unlocks 40 extra cable and pull-up-bar moves (single-arm presses and rows, half-kneeling chops and presses, ankle-strap hip work, Pallof variations, pull-up grips). Moves like side lunge, hip abduction/adduction and shoulder rotation also have a **Front view** toggle in the form guide (the engine now supports bending legs and sideways body shift in front view). New hand-drawn animations replace borrowed ones for side planks, kneeling push-ups, side and curtsy lunges, clamshells, shoulder rotations and standing hip flexion/abduction.
 
+## Motivation and planning
+- **Calendar** (History): month view with strength and cardio days, tap a day to see just that day, plus your **weekly streak** (weeks in a row with at least one session) and best streak.
+- **Badges**: 17 milestones (workout counts, sets, personal records, streaks, cardio, miles, early workouts, full-body weeks, max-out sets, saving a routine). New ones appear on the workout summary; History → badges shows progress toward the rest.
+- **Share**: a finished workout becomes a 1080×1350 image (time, sets, volume, exercises with best set, records, streak) via the phone's share sheet.
+- **Routines in your week**: in Edit plan, pick a saved routine for any training day; Today's button and the week card then start that routine.
+- **Paste a routine**: paste lines like `Bench Press 4x6-8` or `Lat pulldown – 3 sets of 10-12`; the app matches each to an exercise (shorthand like DB, RDL, OHP understood), shows what it couldn't match, and saves a routine.
+- **Deload weeks**: when most recent exercises are rated Hard, or after 6+ straight weeks of 3+ workouts, the Today card offers a lighter week (fewer sets, ~15% lighter) for 7 days.
+
 ## Animation accuracy pass
 `anim-extra.js` replaces poses that showed the wrong or partial movement (dumbbell fly, cable crossover and pec deck now shown from the front, inverted row, deadlift setup, V-up, sit-up, kneeling push-up, Russian twist from the front) and adds templates for suspension rows/curls/presses/triceps, L-sit and tuck hold, box jump, seated leg curl, preacher curl and standing cable row. Side lunge, hip abduction/adduction and shoulder rotations default to the front view. `anim-map.js` checks an exercise's own name before the animation it borrows. Figures have soft skin and shirt shading, and cable moves show the machine column, pulley and weight stack.
 

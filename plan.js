@@ -58,10 +58,15 @@ const PLAN = (() => {
     const rec = recovery(state.history, now);
     const fresh = all.filter((m) => rec[m] === undefined || rec[m] >= 2);
     const skipped = all.filter((m) => !fresh.includes(m));
-    return {
+    const out = {
       splitId, splitName: split.name, label, muscles: fresh.length ? fresh : all, skipped, allSore: !fresh.length,
       planned: !!plan.days[dow], doneToday, trainingDays: plan.days.filter(Boolean).length,
     };
+    // A saved routine assigned to today's day beats the split.
+    const rid = plan.routines && plan.routines[dow];
+    const r = rid && (state.routines || []).find((x) => x.id === rid);
+    if (r && plan.days[dow]) { out.routineId = r.id; out.label = r.name; out.muscles = r.muscles || []; out.skipped = []; }
+    return out;
   }
 
   /** Sun..Sat for the current week: planned / trained / today. */

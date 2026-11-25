@@ -499,3 +499,44 @@ body.restdone #main::before { content: ''; position: fixed; inset: 0; pointer-ev
 .recinfo { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--card2); border-radius: 12px; padding: 10px 12px; }
 .recinfo div { display: flex; flex-direction: column; min-width: 0; }
 .recinfo small { color: var(--muted); font-size: .78rem; }
+
+/* ── motivation & planning ── */
+.streak { font-size: .8rem; font-weight: 800; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.deload { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--good) 12%, var(--card2)); border: 1px solid color-mix(in srgb, var(--good) 35%, var(--line)); }
+.deload small { color: var(--muted); font-size: .8rem; }
+.deload.on { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.cal .row b { font-size: 1rem; }
+.cal .link { font-size: 1.4rem; padding: 2px 12px; }
+.cal .link:disabled { opacity: .25; }
+.calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; margin-top: 6px; }
+.calgrid small { color: var(--muted); font-size: .72rem; font-weight: 700; }
+.calgrid .cd { aspect-ratio: 1; border-radius: 10px; border: 1px solid transparent; background: none; color: var(--text); font: inherit; font-size: .85rem; font-weight: 600; position: relative; padding: 0; }
+.calgrid .cd.lift { background: color-mix(in srgb, var(--accent) 28%, var(--card2)); font-weight: 800; }
+.calgrid .cd.cardio { box-shadow: inset 0 -3px 0 var(--good); }
+.calgrid .cd.cardio:not(.lift) { background: color-mix(in srgb, var(--good) 16%, var(--card2)); }
+.calgrid .cd.today { border-color: var(--text); }
+.calgrid .cd.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+.calfoot { display: flex; gap: 14px; flex-wrap: wrap; font-size: .75rem; color: var(--muted); margin-top: 8px; }
+.calfoot .lg { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.calfoot .lg.lift { background: color-mix(in srgb, var(--accent) 60%, var(--card2)); }
+.calfoot .lg.cardio { background: var(--good); }
+.streakline { margin: 6px 0 0; font-size: .9rem; }
+.dayhead { margin: 4px 2px; }
+.badgestrip { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; text-align: left; width: 100%; font: inherit; color: var(--text); cursor: pointer; }
+.badgestrip span { font-size: 1.2rem; letter-spacing: 2px; }
+.badgestrip small { color: var(--accent); font-weight: 700; }
+.badges { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.bdg { display: flex; flex-direction: column; gap: 3px; padding: 10px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); opacity: .6; }
+.bdg.got { opacity: 1; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.bdg .bi { font-size: 1.6rem; filter: grayscale(1); }
+.bdg.got .bi { filter: none; }
+.bdg small { color: var(--muted); font-size: .75rem; }
+.bdg .when { color: var(--accent); }
+.bdg .bar { margin: 4px 0 0; }
+.newbadge p { margin: 4px 0; }
+.newbadge .bi { font-size: 1.3rem; }
+.pr { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+.pr small { display: block; color: var(--muted); font-size: .75rem; }
+#pasteText { width: 100%; font: inherit; }
+.plr-list { display: grid; gap: 6px; }
+.plr-row { display: grid; grid-template-columns: 48px 1fr; align-items: center; gap: 8px; margin: 0; }

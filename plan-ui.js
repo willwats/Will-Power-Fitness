@@ -18,8 +18,8 @@ const WPP = (ctx) => {
       body = `<p>✓ <b>Done for today.</b> <span class="muted">Next up: ${esc(sug.label)} (${sug.muscles.map(MN).join(', ')})</span></p>`;
     } else {
       const sk = sug.skipped.length ? `<p class="muted small">Resting ${sug.skipped.map(MN).join(', ')} — trained in the last day or so.</p>` : '';
-      body = `<p>${sug.planned ? 'Today' : 'Rest day — next up'}: <b>${esc(sug.label)}</b> <span class="muted">· ${sug.muscles.map(MN).join(', ')}</span></p>${sk}
-        <div class="row gap wrap"><button class="pill on" data-act="pl-build">${sug.planned ? 'Build today’s workout' : 'Train anyway'}</button>
+      body = `<p>${sug.planned ? 'Today' : 'Rest day — next up'}: <b>${esc(sug.label)}</b> <span class="muted">· ${sug.routineId ? 'your routine' : sug.muscles.map(MN).join(', ')}</span></p>${sk}
+        <div class="row gap wrap">${sug.routineId ? `<button class="pill on" data-act="rt-start" data-id="${sug.routineId}">▶ Start ${esc(sug.label)}</button>` : `<button class="pill on" data-act="pl-build">${sug.planned ? 'Build today’s workout' : 'Train anyway'}</button>`}
         ${sug.planned ? '' : '<button class="pill" data-act="cd-mode" data-v="cardio">A walk counts — Cardio</button>'}</div>`;
     }
     return `<section class="card plan">
@@ -33,6 +33,9 @@ const WPP = (ctx) => {
     openSheet('Your week', `
       <p class="muted">Which days do you train? Recovery and your last workout decide what to train each day.</p>
       <div class="pills" id="plDays">${PLAN.DOW.map((d, i) => `<button class="pill ${p.days[i] ? 'on' : ''}" data-act="pl-day" data-i="${i}" aria-pressed="${!!p.days[i]}">${d}</button>`).join('')}</div>
+      ${(S().routines || []).length && p.days.some(Boolean) ? `<h3>What to do each day</h3>
+      <p class="muted small">Pick a saved routine for a day, or leave it on Auto to follow the split below.</p>
+      <div class="plr-list">${p.days.map((on, i) => on ? `<div class="field plr-row"><label for="plr${i}">${PLAN.DOW[i]}</label><select id="plr${i}" class="plr" data-i="${i}"><option value="">Auto (split)</option>${S().routines.map((r) => `<option value="${r.id}" ${p.routines && p.routines[i] === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>` : '').join('')}</div>` : ''}
       <h3>Split</h3>
       <div class="focus-list" id="plSplits">${Object.entries(PLAN.SPLITS).map(([id, s]) => `
         <button class="focus ${p.split === id ? 'on' : ''}" data-act="pl-split" data-v="${id}" aria-pressed="${p.split === id}"><b>${s.name}</b>${id === 'auto' ? ` <span class="badge" id="plAuto">${PLAN.SPLITS[rs].name}</span>` : ''}<small>${s.blurb}</small></button>`).join('')}</div>
@@ -42,7 +45,7 @@ const WPP = (ctx) => {
       <p class="muted small">Downloads a calendar file with a repeating event and a 15-minute alert on your training days. Open it and tap <b>Add All</b>. Web apps can’t send push alerts on iPhone reliably, so Calendar is the dependable option.</p>
       <div class="row gap wrap"><button class="pill on" data-act="pl-save">Save</button><button class="pill" data-act="close-sheet">Cancel</button></div>`);
   }
-  const edit = () => { const p = PLAN.getPlan(S()); ui.pdraft = { days: p.days.slice(), split: p.split, time: p.time }; sheet(); };
+  const edit = () => { const p = PLAN.getPlan(S()); ui.pdraft = { days: p.days.slice(), split: p.split, time: p.time, routines: { ...(p.routines || {}) } }; sheet(); };
 
   function download(name, text, type) {
     const url = URL.createObjectURL(new Blob([text], { type }));
@@ -54,12 +57,12 @@ const WPP = (ctx) => {
     const d = ui.pdraft;
     switch (a) {
       case 'pl-edit': edit(); return true;
-      case 'pl-day': if (!d) return true; d.days[+t.dataset.i] = !d.days[+t.dataset.i]; t.classList.toggle('on', d.days[+t.dataset.i]); t.setAttribute('aria-pressed', d.days[+t.dataset.i]); refreshAuto(); return true;
+      case 'pl-day': if (!d) return true; d.days[+t.dataset.i] = !d.days[+t.dataset.i]; if ((S().routines || []).length) { const y = document.getElementById('sheetBody'); const sc = y ? y.scrollTop : 0; sheet(); if (y) y.scrollTop = sc; } else { t.classList.toggle('on', d.days[+t.dataset.i]); t.setAttribute('aria-pressed', d.days[+t.dataset.i]); refreshAuto(); } return true;
       case 'pl-split': if (!d) return true; d.split = t.dataset.v; document.querySelectorAll('#plSplits .focus').forEach((n) => { const on = n.dataset.v === d.split; n.classList.toggle('on', on); n.setAttribute('aria-pressed', on); }); return true;
       case 'pl-save':
         if (!d) return true;
         if (!d.days.some(Boolean)) { toast('Pick at least one training day'); return true; }
-        S().plan = { days: d.days, split: d.split, time: d.time || '18:00', set: true };
+        S().plan = { days: d.days, split: d.split, time: d.time || '18:00', set: true, routines: d.routines || {} };
         ui.pdraft = null; ctx.save(); closeSheet(); ctx.render(); toast('Week saved'); return true;
       case 'pl-ics':
         if (!d) return true;
@@ -73,7 +76,11 @@ const WPP = (ctx) => {
     }
   }
   function refreshAuto() { const d = ui.pdraft, n = document.getElementById('plAuto'); if (d && n) n.textContent = PLAN.SPLITS[PLAN.resolveSplit(d, (S().body || {}).focus)].name; }
-  function input(t) { if (t.id === 'plTime' && ui.pdraft) { ui.pdraft.time = t.value; return true; } return false; }
+  function input(t) {
+    if (t.id === 'plTime' && ui.pdraft) { ui.pdraft.time = t.value; return true; }
+    if (t.classList && t.classList.contains('plr') && ui.pdraft) { ui.pdraft.routines = ui.pdraft.routines || {}; if (t.value) ui.pdraft.routines[t.dataset.i] = t.value; else delete ui.pdraft.routines[t.dataset.i]; return true; }
+    return false;
+  }
 
   return { trainCard, act, input, isSet: () => !!PLAN.getPlan(S()).set };
 };
