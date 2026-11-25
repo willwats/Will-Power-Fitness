@@ -158,6 +158,11 @@ const WPA = (() => {
     // the live figure's elements are the direct children of the svg (ghosts live inside <g class="ghost">)
     const ref = { svg, hl, held: svg.querySelector('.held'), rope: svg.querySelector('.rope'), hls: [], ghosts: [] };
     svg.querySelectorAll('[data-r]').forEach((n) => { if (!n.closest('.ghost')) ref[n.dataset.r] = n; });
+    // Front view: both arms sit in front of the torso (the far arm would otherwise vanish behind it when it crosses the body).
+    if (tpl.poses[0] && tpl.poses[0].v === 'f') {
+      ['fa1', 'fa2', 'fh'].forEach((k) => { const n = ref[k]; if (n) { n.classList.remove('far'); svg.insertBefore(n, ref.ar1); } });
+      svg.querySelectorAll('.ghost').forEach((g) => { const r = refIn(g); ['fa1', 'fa2', 'fh'].forEach((k) => { if (r[k]) g.insertBefore(r[k], r.ar1); }); });
+    }
     if (hl) for (let i = 0; i < hl.n; i++) ref.hls.push(ref['hl' + i]);
     svg.querySelectorAll('.ghost').forEach((g) => ref.ghosts.push(refIn(g)));
     ref.badges = Array.from(svg.querySelectorAll('.gbadge'));
