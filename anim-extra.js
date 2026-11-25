@@ -71,7 +71,7 @@
   // (arms pointing at you look short) while the torso stays square.
   add('pallof', {
     anchor: [136, 47],
-    poses: [fpose({ a: [40, -105] }), fpose({ a: [-30, -30], fs: 0.47 })],
+    poses: [fpose({ a: [5, -122] }), fpose({ a: [-50, -50], fs: 0.47 })],   // both hands on one handle at the centre of the chest
   });
 
   /* ── arms ── */
