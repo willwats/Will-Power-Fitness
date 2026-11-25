@@ -28,7 +28,7 @@ const WPA = (() => {
 
   /** Front-view pose (for lateral raises etc.): arm angles are measured from straight down, outward positive. */
   function fpose(o) {
-    return { v: 'f', sy: o.sy || 0, hy: o.hy || 0, a: o.a || [0, 0], a2: o.a2 || o.a || [0, 0], g: o.g || 0, g2: o.g2 === undefined ? (o.g || 0) : o.g2, hx: o.hx || 0, f: o.f || null, f2: o.f2 || null };
+    return { v: 'f', sy: o.sy || 0, hy: o.hy || 0, a: o.a || [0, 0], a2: o.a2 || o.a || [0, 0], g: o.g || 0, g2: o.g2 === undefined ? (o.g || 0) : o.g2, hx: o.hx || 0, fs: o.fs || 1, f: o.f || null, f2: o.f2 || null };
   }
 
   /** Two-segment IK: returns the middle joint (elbow/knee) and the (possibly clamped) end point. */
@@ -51,7 +51,7 @@ const WPA = (() => {
   function mix(p, q, k) {
     if (p.v === 'f') {
       const l2 = (a, b) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k)];
-      return { v: 'f', sy: lerp(p.sy, q.sy, k), hy: lerp(p.hy, q.hy, k), a: l2(p.a, q.a), a2: l2(p.a2, q.a2), g: lerp(p.g, q.g, k), g2: lerp(p.g2, q.g2, k), hx: lerp(p.hx || 0, q.hx || 0, k),
+      return { v: 'f', sy: lerp(p.sy, q.sy, k), hy: lerp(p.hy, q.hy, k), a: l2(p.a, q.a), a2: l2(p.a2, q.a2), g: lerp(p.g, q.g, k), g2: lerp(p.g2, q.g2, k), hx: lerp(p.hx || 0, q.hx || 0, k), fs: lerp(p.fs || 1, q.fs || 1, k),
         f: p.f && q.f ? l2(p.f, q.f) : (k < 0.5 ? p.f : q.f), f2: p.f2 && q.f2 ? l2(p.f2, q.f2) : (k < 0.5 ? p.f2 : q.f2) };
     }
     return {
@@ -188,10 +188,11 @@ const WPA = (() => {
 
   function drawFront(ref, p) {
     const cx = 80 + (p.hx || 0), hipY = 57 + p.hy, neckY = hipY - 24 + p.sy;
+    const fs = p.fs || 1;                               // < 1 when the arms point toward the viewer (foreshortened)
     const arm = (sx, a, dir) => {
       const s0 = [cx + sx, neckY + 3];
-      const j = [s0[0] + dir * UA * Math.sin(rad(a[0])), s0[1] + UA * Math.cos(rad(a[0]))];
-      return [s0, j, [j[0] + dir * FA * Math.sin(rad(a[1])), j[1] + FA * Math.cos(rad(a[1]))]];
+      const j = [s0[0] + dir * UA * fs * Math.sin(rad(a[0])), s0[1] + UA * fs * Math.cos(rad(a[0]))];
+      return [s0, j, [j[0] + dir * FA * fs * Math.sin(rad(a[1])), j[1] + FA * fs * Math.cos(rad(a[1]))]];
     };
     const leg = (x, g, dir, foot) => {
       if (foot) { const r = ik([x, hipY], foot, TH, SH, -dir); return [[x, hipY], r.j, r.e]; }   // foot placed → knee bends outward

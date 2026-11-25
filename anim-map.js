@@ -3,6 +3,7 @@
   // First matching rule wins, so specific names come before general ones.
   // Checked against the exercise's own name first, even when it borrows another exercise's animation.
   const FIRST = [
+    [/Pallof|Anti-Rotation/, 'pallof'],
     [/^TRX (Row|Single-Arm Row)/, 'trx_row'],
     [/^TRX Biceps Curl/, 'trx_curl'],
     [/^TRX (Chest Press|Chest Fly)/, 'trx_press'],

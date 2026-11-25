@@ -66,6 +66,14 @@
     poses: [lean(62, -30, { hand: S(22, -9) }), lean(62, -38, { hand: S(4, -10), eb: 1 })],
   });
 
+  /* ── anti-rotation ── */
+  // Pallof press from the front: cable pulls from the side; press the handle straight out from the chest and back
+  // (arms pointing at you look short) while the torso stays square.
+  add('pallof', {
+    anchor: [136, 47],
+    poses: [fpose({ a: [40, -105] }), fpose({ a: [-30, -30], fs: 0.47 })],
+  });
+
   /* ── arms ── */
   // Preacher curl: upper arm resting on a sloped pad, curl from straight arm to the shoulder.
   add('preacher', {
