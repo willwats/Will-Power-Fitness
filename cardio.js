@@ -12,9 +12,25 @@ const CARDIO = (() => {
     { id: 'hiit', name: 'HIIT' },
     { id: 'jumprope', name: 'Jump rope' },
     { id: 'strength', name: 'Strength' },
-    { id: 'golf', name: 'Golf', gps: true },
-    { id: 'sports', name: 'Sports' },
-    { id: 'yoga', name: 'Yoga' },
+    // sports & activities (logged from History, or imported from Apple Health)
+    { id: 'golf', name: 'Golf', gps: true, sport: true },
+    { id: 'basketball', name: 'Basketball', sport: true },
+    { id: 'tennis', name: 'Tennis', sport: true },
+    { id: 'pickleball', name: 'Pickleball', sport: true },
+    { id: 'soccer', name: 'Soccer', sport: true },
+    { id: 'football', name: 'Football', sport: true },
+    { id: 'volleyball', name: 'Volleyball', sport: true },
+    { id: 'baseball', name: 'Baseball / softball', sport: true },
+    { id: 'racquet', name: 'Racquetball / squash', sport: true },
+    { id: 'hockey', name: 'Hockey', sport: true },
+    { id: 'boxing', name: 'Boxing', sport: true },
+    { id: 'martial', name: 'Martial arts', sport: true },
+    { id: 'climbing', name: 'Climbing', sport: true },
+    { id: 'skiing', name: 'Skiing / snowboarding', sport: true },
+    { id: 'surfing', name: 'Surfing / paddling', sport: true },
+    { id: 'dance', name: 'Dance', sport: true },
+    { id: 'yoga', name: 'Yoga / Pilates', sport: true },
+    { id: 'sports', name: 'Other sport', sport: true },
     { id: 'other', name: 'Other' },
   ];
   const TYPE_NAME = Object.fromEntries(TYPES.map((t) => [t.id, t.name]));
@@ -25,7 +41,8 @@ const CARDIO = (() => {
     run: [[4, 6.0], [5, 8.3], [6, 9.8], [7, 11.0], [8, 11.8], [9, 12.8], [10, 14.5]],
     cycle: [[10, 6.0], [12, 8.0], [14, 10.0], [16, 12.0], [20, 15.8]],
   };
-  const FIXED_MET = { walk: 3.5, run: 9.8, cycle: 8.0, hike: 6.0, elliptical: 5.0, rower: 7.0, stairs: 8.8, swim: 6.0, hiit: 8.0, jumprope: 11.8, strength: 5.0, golf: 4.8, sports: 7.0, yoga: 2.5, other: 5.0 };
+  const FIXED_MET = { walk: 3.5, run: 9.8, cycle: 8.0, hike: 6.0, elliptical: 5.0, rower: 7.0, stairs: 8.8, swim: 6.0, hiit: 8.0, jumprope: 11.8, strength: 5.0, golf: 4.8, basketball: 7.5, tennis: 7.3, pickleball: 4.1, soccer: 7.0, football: 8.0, volleyball: 4.0, baseball: 5.0,
+    racquet: 7.0, hockey: 8.0, boxing: 7.0, martial: 8.0, climbing: 7.5, skiing: 5.3, surfing: 3.5, dance: 5.5, sports: 7.0, yoga: 2.5, other: 5.0 };
 
   const MI = 1609.344;
   const lerp = (a, b, k) => a + (b - a) * k;
@@ -102,7 +119,10 @@ const CARDIO = (() => {
   const HEALTH_TYPES = [
     [/walk/i, 'walk'], [/run/i, 'run'], [/hik/i, 'hike'], [/cycl|bik/i, 'cycle'], [/ellip/i, 'elliptical'], [/row/i, 'rower'],
     [/stair/i, 'stairs'], [/swim/i, 'swim'], [/high intensity|hiit|interval/i, 'hiit'], [/jump rope/i, 'jumprope'], [/strength|weight/i, 'strength'], [/golf/i, 'golf'], [/yoga|pilates|flexibility|mind/i, 'yoga'],
-    [/tennis|basketball|soccer|football|baseball|volleyball|hockey|pickleball|racquet|squash|badminton|boxing|kickboxing|martial/i, 'sports'],
+    [/basketball/i, 'basketball'], [/pickleball/i, 'pickleball'], [/table tennis|tennis|badminton/i, 'tennis'], [/soccer/i, 'soccer'],
+    [/football|rugby/i, 'football'], [/volleyball/i, 'volleyball'], [/baseball|softball|cricket/i, 'baseball'], [/racquet|squash|paddle/i, 'racquet'],
+    [/hockey|lacrosse/i, 'hockey'], [/boxing/i, 'boxing'], [/martial|wrestling|kickbox/i, 'martial'], [/climb/i, 'climbing'],
+    [/ski|snowboard/i, 'skiing'], [/surf|paddl|kayak/i, 'surfing'], [/danc|barre/i, 'dance'], [/sport|play/i, 'sports'],
   ];
   const healthType = (s) => { for (const [re, id] of HEALTH_TYPES) if (re.test(s || '')) return id; return 'other'; };
   const numOf = (v) => { if (v == null) return 0; const n = parseFloat(String(v).replace(/,/g, '').trim()); return Number.isFinite(n) ? n : 0; };

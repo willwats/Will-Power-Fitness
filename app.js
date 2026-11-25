@@ -330,7 +330,7 @@
       <svg class="recmap" viewBox="${ANATOMY.VIEWBOX}" role="group" aria-label="Recovery map">${fig('front', 0)}${fig('back', 110)}</svg>
       <div class="legend"><span><i style="background:${RECOVERY.color(15)}"></i>Recovering</span><span><i style="background:${RECOVERY.color(70)}"></i>Almost</span><span><i style="background:${RECOVERY.color(100)}"></i>Fresh</span></div>
       <div class="recinfo">
-        <div><b>${MUSCLE_NAME[pick]} · ${r.pct}%</b><small>${agoTxt}${r.via ? ` · ${esc(r.via.length > 3 ? r.via : (CARDIO.TYPE_NAME[r.via] || r.via))}` : r.sets ? ` · ${r.sets} sets` : ''} · ${ready}</small></div>
+        <div><b>${MUSCLE_NAME[pick]} · ${r.pct}%</b><small>${agoTxt}${r.via ? ` · ${esc(CARDIO.TYPE_NAME[r.via] || r.via)}` : r.sets ? ` · ${r.sets} sets` : ''} · ${ready}</small></div>
         <button class="pill ${sel ? 'on' : ''}" data-act="toggle-muscle" data-m="${pick}">${sel ? '✓ In workout' : '＋ Train it'}</button>
       </div>
       <p class="muted small">An estimate from your logged sets and cardio (runs, elliptical, golf and other activities count too): bigger muscles and harder sessions take longer. Tap a muscle for details.</p>
@@ -365,7 +365,7 @@
         <div><b>${last ? (days === 0 ? 'Today' : days === 1 ? 'Yesterday' : days + 'd ago') : '—'}</b><small>${last ? esc(titleOf(last.muscles, last.regions)) : 'no workouts yet'}</small></div>
       </div>
       ${btn}
-      <button class="link" data-act="log-open">＋ Log a run or workout I didn’t track here</button></section>`;
+      <button class="link" data-act="log-open">＋ Log a run, sport or workout I didn’t track here</button></section>`;
   }
   function viewRoutines() {
     const rs = state.routines;
@@ -691,7 +691,7 @@
 
   function viewHistory() {
     if (ui.histMode === 'body') return T.bodyView();
-    return T.histSwitch() + '<button class="pill wide" data-act="log-open">＋ Log a workout I did (earlier or not in the app)</button>' + viewWorkoutHistory();
+    return T.histSwitch() + '<button class="pill wide" data-act="log-open">＋ Log a workout, sport or activity</button>' + viewWorkoutHistory();
   }
 
   function calendarCard() {
@@ -1019,6 +1019,7 @@
     openSheet('Log a workout', `
       <p class="muted">Add something you did that never made it into the app — today or any earlier day.</p>
       <button class="pick" data-act="cd-manual"><b>Run, walk, bike or other cardio</b><small>Pick the activity, minutes, distance and the day</small></button>
+      <button class="pick" data-act="cd-manual-sport"><b>Sport or activity</b><small>Golf, basketball, tennis, pickleball, soccer, climbing, yoga and more</small></button>
       <button class="pick" data-act="log-strength"><b>Strength workout</b><small>Pick exercises and enter sets, reps and weight for any day</small></button>`);
   }
 

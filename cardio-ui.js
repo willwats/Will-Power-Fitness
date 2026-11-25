@@ -102,9 +102,9 @@ const WPC = (ctx) => {
   function sheetLog() {
     const d = ui.cdraft, today = CARDIO.dayKey(Date.now());
     const w = S().settings.weight || (U() === 'kg' ? 75 : 165);
-    openSheet(d.live ? 'Save session' : 'Log cardio', `
+    openSheet(d.live ? 'Save session' : (CARDIO.TYPES.find((t) => t.id === d.type) || {}).sport ? 'Log an activity' : 'Log cardio', `
       <div class="field"><label for="clType">Activity</label>
-        <select id="clType">${CARDIO.TYPES.map((t) => `<option value="${t.id}" ${t.id === d.type ? 'selected' : ''}>${t.name}</option>`).join('')}</select></div>
+        <select id="clType">${[['Cardio', CARDIO.TYPES.filter((t) => !t.sport)], ['Sports & activities', CARDIO.TYPES.filter((t) => t.sport)]].map(([g, list]) => `<optgroup label="${g}">${list.map((t) => `<option value="${t.id}" ${t.id === d.type ? 'selected' : ''}>${t.name}</option>`).join('')}</optgroup>`).join('')}</select></div>
       <div class="grid2">
         <div class="field"><label for="clMin">Minutes</label><input id="clMin" type="number" inputmode="decimal" min="1" value="${d.min || ''}"></div>
         <div class="field"><label for="clDist">Distance (${du()})</label><input id="clDist" type="number" inputmode="decimal" min="0" step="0.01" value="${d.dist || ''}" placeholder="optional"></div>
@@ -337,7 +337,7 @@ const WPC = (ctx) => {
     const t = CARDIO.TYPES.find((x) => x.id === ui.ctype) || CARDIO.TYPES[0];
     return `<section class="card">
       <h2>Start a session</h2>
-      <div class="pills">${CARDIO.TYPES.map((x) => `<button class="pill ${x.id === ui.ctype ? 'on' : ''}" data-act="cd-type" data-v="${x.id}">${x.name}</button>`).join('')}</div>
+      <div class="pills">${CARDIO.TYPES.filter((x) => !x.sport || x.id === ui.ctype).map((x) => `<button class="pill ${x.id === ui.ctype ? 'on' : ''}" data-act="cd-type" data-v="${x.id}">${x.name}</button>`).join('')}</div>
       ${t.gps ? `<label class="toggle"><input type="checkbox" id="gpsToggle" ${ui.cgps ? 'checked' : ''}> <span>Track distance with GPS (keep the screen on)</span></label>` : ''}
       <div class="row gap wrap"><button class="pill on big" data-act="cd-start">Start ${t.name.toLowerCase()}</button><button class="pill" data-act="cd-manual">＋ Log a past session</button></div>
     </section>`;
@@ -419,6 +419,7 @@ const WPC = (ctx) => {
       case 'cd-discard':
         if (confirm('Discard this session?')) { S().cardioLive = null; stopWatch(); ctx.save(); closeSheet(); ctx.render(); }
         return true;
+      case 'cd-manual-sport': ui.cdraft = { type: 'golf', min: 60, dist: 0, kcal: 0, kedit: false, live: false }; ui.cdraft.kcal = estimate(ui.cdraft); sheetLog(); return true;
       case 'cd-manual': ui.cdraft = { type: ui.ctype, min: 30, dist: 0, kcal: 0, kedit: false, live: false }; ui.cdraft.kcal = estimate(ui.cdraft); sheetLog(); return true;
       case 'cd-save': saveLog(); return true;
       case 'cd-save-more': saveLog(true); return true;
