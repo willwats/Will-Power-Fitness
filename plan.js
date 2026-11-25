@@ -56,6 +56,10 @@ const PLAN = (() => {
     if (doneToday && last) idx = (matchDay(split, last.muscles || []) + 1) % split.days.length;  // preview tomorrow's
     const [label, all] = split.days[idx];
     const rec = recovery(state.history, now);
+    if (typeof RECOVERY !== 'undefined') for (const c of state.cardio || []) {      // cardio and sports tire muscles too
+      const d = Math.floor((now - c.date) / 86400000);
+      Object.entries(RECOVERY.activityLoads(c)).forEach(([m, l]) => { if (l >= 2 && (rec[m] === undefined || d < rec[m])) rec[m] = d; });
+    }
     const fresh = all.filter((m) => rec[m] === undefined || rec[m] >= 2);
     const skipped = all.filter((m) => !fresh.includes(m));
     const out = {

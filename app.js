@@ -123,6 +123,9 @@
     for (const w of state.history) {
       if (w.exercises.some((e) => e.muscle === muscle && e.sets.length)) last = Math.max(last, w.endedAt || w.date);
     }
+    for (const c of state.cardio || []) {                 // runs, elliptical, golf… count when they worked this muscle
+      if ((RECOVERY.activityLoads(c)[muscle] || 0) >= 1) last = Math.max(last, c.date + (c.dur || 0) * 1000);
+    }
     return last ? Math.floor((startOfDay(Date.now()) - startOfDay(last)) / 86400000) : null;
   }
   function lastLog(exId) {
