@@ -127,6 +127,25 @@
   };
   add('kneel_pushup', { poses: [kneel(70, 1), kneel(86, 1)] });
 
+  /* ── glute bridges: head and shoulders stay on the floor at the top ── */
+  add('bridge', {
+    poses: [
+      pose({ hip: [56, 88], t: 90, foot: G(40), kb: 1, hand: A(72, 92) }),
+      pose({ hip: [56, 76], t: 123, nk: -33, foot: G(40), kb: 1, hand: A(72, 92) }),
+    ],
+  });
+  // Frog pump: soles together close to the hips, knees dropped out; short, quick bridges.
+  add('frog_pump', {
+    poses: [
+      pose({ hip: [58, 89], t: 90, foot: A(47, 93), kb: 1, hand: A(74, 92) }),
+      pose({ hip: [58, 80], t: 112, nk: -22, foot: A(47, 93), kb: 1, hand: A(74, 92) }),
+    ],
+  });
+  // Russian twist from the front: seated V with knees up, hands together sweeping from hip to hip.
+  const tw = (side) => fpose({ hy: 29, sy: 7, hx: side * 2.5, k: [91, 73], k2: [69, 73], f: [84, 89], f2: [76, 89],
+    h: [80 + side * 21, 86], h2: [80 + side * 21, 86] });
+  add('russian_twist', { poses: [tw(1), tw(-1)] });
+
   /* ── front views become the main view where the side view hides the movement ── */
   ['side_lunge_f', 'abduct_f', 'adduct_f', 'ext_rotation_f'].forEach((n) => { if (WPA.T[n]) delete WPA.T[n].front; });
 })();

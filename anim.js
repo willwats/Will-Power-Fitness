@@ -28,7 +28,8 @@ const WPA = (() => {
 
   /** Front-view pose (for lateral raises etc.): arm angles are measured from straight down, outward positive. */
   function fpose(o) {
-    return { v: 'f', sy: o.sy || 0, hy: o.hy || 0, a: o.a || [0, 0], a2: o.a2 || o.a || [0, 0], g: o.g || 0, g2: o.g2 === undefined ? (o.g || 0) : o.g2, hx: o.hx || 0, fs: o.fs || 1, f: o.f || null, f2: o.f2 || null };
+    return { v: 'f', sy: o.sy || 0, hy: o.hy || 0, a: o.a || [0, 0], a2: o.a2 || o.a || [0, 0], g: o.g || 0, g2: o.g2 === undefined ? (o.g || 0) : o.g2, hx: o.hx || 0, fs: o.fs || 1, f: o.f || null, f2: o.f2 || null,
+      h: o.h || null, h2: o.h2 || null, k: o.k || null, k2: o.k2 || null };
   }
 
   /** Two-segment IK: returns the middle joint (elbow/knee) and the (possibly clamped) end point. */
@@ -52,7 +53,8 @@ const WPA = (() => {
     if (p.v === 'f') {
       const l2 = (a, b) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k)];
       return { v: 'f', sy: lerp(p.sy, q.sy, k), hy: lerp(p.hy, q.hy, k), a: l2(p.a, q.a), a2: l2(p.a2, q.a2), g: lerp(p.g, q.g, k), g2: lerp(p.g2, q.g2, k), hx: lerp(p.hx || 0, q.hx || 0, k), fs: lerp(p.fs || 1, q.fs || 1, k),
-        f: p.f && q.f ? l2(p.f, q.f) : (k < 0.5 ? p.f : q.f), f2: p.f2 && q.f2 ? l2(p.f2, q.f2) : (k < 0.5 ? p.f2 : q.f2) };
+        f: p.f && q.f ? l2(p.f, q.f) : (k < 0.5 ? p.f : q.f), f2: p.f2 && q.f2 ? l2(p.f2, q.f2) : (k < 0.5 ? p.f2 : q.f2),
+        h: p.h && q.h ? l2(p.h, q.h) : null, h2: p.h2 && q.h2 ? l2(p.h2, q.h2) : null, k: p.k && q.k ? l2(p.k, q.k) : null, k2: p.k2 && q.k2 ? l2(p.k2, q.k2) : null };
     }
     return {
       hip: lerp2(p.hip, q.hip, k), t: lerp(p.t, q.t, k), nk: lerp(p.nk, q.nk, k),
@@ -194,17 +196,19 @@ const WPA = (() => {
   function drawFront(ref, p) {
     const cx = 80 + (p.hx || 0), hipY = 57 + p.hy, neckY = hipY - 24 + p.sy;
     const fs = p.fs || 1;                               // < 1 when the arms point toward the viewer (foreshortened)
-    const arm = (sx, a, dir) => {
+    const arm = (sx, a, dir, hand) => {
       const s0 = [cx + sx, neckY + 3];
+      if (hand) { const r = ik(s0, hand, UA * fs, FA * fs, dir); return [s0, r.j, r.e]; }   // hand placed → elbow bends outward
       const j = [s0[0] + dir * UA * fs * Math.sin(rad(a[0])), s0[1] + UA * fs * Math.cos(rad(a[0]))];
       return [s0, j, [j[0] + dir * FA * fs * Math.sin(rad(a[1])), j[1] + FA * fs * Math.cos(rad(a[1]))]];
     };
-    const leg = (x, g, dir, foot) => {
+    const leg = (x, g, dir, foot, knee) => {
+      if (foot && knee) return [[x, hipY], knee, foot];                                   // knee placed too (e.g. seated, knees up toward you)
       if (foot) { const r = ik([x, hipY], foot, TH, SH, -dir); return [[x, hipY], r.j, r.e]; }   // foot placed → knee bends outward
       const f = [x + dir * 37 * Math.sin(rad(g)), hipY + 37 * Math.cos(rad(g))];
       return [[x, hipY], [(x + f[0]) / 2 + dir * 0.4, (hipY + f[1]) / 2], f];
     };
-    const ra = arm(9, p.a, 1), la = arm(-9, p.a2, -1), rl = leg(cx + 4.5, p.g, 1, p.f), ll = leg(cx - 4.5, p.g2, -1, p.f2);
+    const ra = arm(9, p.a, 1, p.h), la = arm(-9, p.a2, -1, p.h2), rl = leg(cx + 4.5, p.g, 1, p.f, p.k), ll = leg(cx - 4.5, p.g2, -1, p.f2, p.k2);
     const G = { hip: [cx, hipY], sh: [cx, neckY + 3], n: [0, 0], axis: -90, arms: [ra, la], legs: [rl, ll] };
     setD(ref.tr, blob([[cx - 10.5, neckY + 4], [cx - 5, neckY + 0.5], [cx + 5, neckY + 0.5], [cx + 10.5, neckY + 4], [cx + 8, neckY + 12], [cx + 6, hipY - 4], [cx + 6, hipY], [cx - 6, hipY], [cx - 6, hipY - 4], [cx - 8, neckY + 12]]));
     setC(ref.hp, [cx, hipY - 1], 7.2);

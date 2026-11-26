@@ -3,6 +3,7 @@
   // First matching rule wins, so specific names come before general ones.
   // Checked against the exercise's own name first, even when it borrows another exercise's animation.
   const FIRST = [
+    [/Frog Pump/, 'frog_pump'],
     [/Pallof|Anti-Rotation/, 'pallof'],
     [/^TRX (Row|Single-Arm Row)/, 'trx_row'],
     [/^TRX Biceps Curl/, 'trx_curl'],
@@ -121,7 +122,8 @@
     [/^Leg Press Calf|Calf Raise/, (ex) => (/^Seated/.test(ex.name) ? 'calf_seated' : 'calf_raise')],
     [/^Leg Press/, 'leg_press'],
     [/^Leg Extension/, 'leg_ext'],
-    [/Glute Bridge|Frog Pump/, 'bridge'],
+    [/Frog Pump/, 'frog_pump'],
+    [/Glute Bridge/, 'bridge'],
     [/Hip Thrust/, 'hip_thrust'],
     [/Donkey|Fire Hydrant/, 'donkey'],
     [/Lateral Walk/, 'lateral_walk'],
